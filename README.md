@@ -1,1 +1,2 @@
-# WhaleShark_IIoT
+# whaleshark_IIoT
+IIoT(Edge Computing)
