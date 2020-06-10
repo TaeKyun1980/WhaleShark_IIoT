@@ -1,9 +1,18 @@
 import pika
+import yaml
 from rasberry_sensor_node.sensors.mpu6050 import read_mp6050
 from datetime import datetime
-rabbitmq_server ='192.168.0.222'
-credentials = pika.PlainCredentials('add4sys', 'add4s')
-connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_server,5672, '/',  credentials))
+
+config_f = open("config_develop.yaml", 'r')
+config_obj = yaml.load(config_f)
+
+rabbitmq_server = config_obj['mqtt']['rabbitmq']['host']
+rabbitmq_port = config_obj['mqtt']['rabbitmq']['port']
+rabbitmq_id = config_obj['mqtt']['rabbitmq']['id']
+rabbitmq_pwd = config_obj['mqtt']['rabbitmq']['pwd']
+
+credentials = pika.PlainCredentials(rabbitmq_id, rabbitmq_pwd)
+connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_server,rabbitmq_port, '/',  credentials))
 channel = connection.channel()
 
 
