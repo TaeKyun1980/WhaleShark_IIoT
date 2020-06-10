@@ -1,2 +1,4 @@
 # whaleshark_IIoT
-IIoT(Edge Computing)
+IIoT Project
+## mqtt agent
+## Sensor Node  

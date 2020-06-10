@@ -1,6 +1,6 @@
 tsdb:
   influx:
-    host: '0.0.0.0'
+    host: '192.168.0.222'
     port: '8086'
     user: ''
     pasword: ''
@@ -9,7 +9,9 @@ tsdb:
 
 mqtt:
   rabbitmq:
-    host: '0.0.0.0'
+    host: '192.168.0.222'
     port: 5672
-    id: 'id'
-    pwd: 'pwd'
+    id: 'add4sys'
+    pwd: 'add4s'
+#key: ["value1", "value2"]
+#key: value
