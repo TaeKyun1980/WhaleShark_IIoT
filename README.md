@@ -1,4 +1,5 @@
-# whaleshark_IIoT
+# Whaleshark IIoT
 IIoT Project
-## mqtt agent
-## Sensor Node  
+## Task 1 mqtt agent
+## Task 2 Sensor Node  
+## Task 3 factory gateway server
