@@ -21,8 +21,6 @@
 - 게이트웨이 에이전트 : 게이트웨이를 통해 전달된 Modbus기반 데이터를 보기 쉬운 데이터로 변환합니다.
 - TSDB 에이전트 : 게이트웨이 에이전트에서 센서 값을 받아 TSDB에 저장합니다.
 
-
-
 ## Facebook
  - [WhaleShark IIoT 개발자 사용자 모임 - Facebook 그룹](생성 예정입니다.)
 
@@ -30,6 +28,11 @@
  - **Pull request**는 반드시 **develop branch**로 요청하여야 합니다.
  - 상세한 내용은 Blog를 참조하여 사진 학습하시기 바랍니다.
    - [Blog](.https://blog.naver.com/PostList.nhn?blogId=dataignitelab&categoryNo=6)
+   
+## WhaleShark IIoT 개발 방법
+- 센서 수집용 임베디드 시스템 : RT-OS인 RT-Thread를 이용합니다.(.https://github.com/RT-Thread/rt-thread)
+- 게이트웨이 : 7월 초 공개 예정
+- 게이트웨어 에이전트:  7월 초 공개 예정
 
 ## License
 Licensed under the Apache License, Version 2.0
