@@ -27,7 +27,7 @@
 ## WhaleShark IIoT에 기여하기
  - **Pull request**는 반드시 **develop branch**로 요청하여야 합니다.
  - 상세한 내용은 Blog를 참조하여 사진 학습하시기 바랍니다.
-   - [Blog](.https://blog.naver.com/PostList.nhn?blogId=dataignitelab&categoryNo=6)
+   - https://blog.naver.com/PostList.nhn?blogId=dataignitelab&categoryNo=6
    
 ## WhaleShark IIoT 개발 방법
 - 센서 수집용 임베디드 시스템 : RT-OS인 RT-Thread를 이용합니다.(.https://github.com/RT-Thread/rt-thread)
