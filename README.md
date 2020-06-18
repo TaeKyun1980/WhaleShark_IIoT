@@ -12,7 +12,7 @@
  - [Document Home] 7월 초 공개 예정
 
 ## Download
- - [최신 Release](https://github.com/dataignitelab/WhaleShark IIoT_IIoT)
+ - [최신 Release](https://github.com/dataignitelab/WhaleShark_IIoT)
 
 ## 모듈
 ### WhaleShark IIoT는 4가지 주요 모듈로 구성된다 :
