@@ -1,16 +1,11 @@
 import unittest
-import docker
 
 from instrument_driver.modbus_tk4s import autonics_pid_tk4s
 from mqtt_agent.modbus_rabbitmq_agent import modbus_rabbitmq_agent
 
 
 class mqtt_agent(unittest.TestCase):
-
     def setUp(self):
-        # client = docker.from_env()
-        #docker run -d --name rabbitmq -p 5672:5672 -p 8080:15672 --restart=unless-stopped -e RABBITMQ_DEFAULT_USER=add4sys -e RABBITMQ_DEFAULT_PASS=add4s rabbitmq:management
-        # client.containers.run('alpine', 'echo hello world')
         pass
 
     #mqtt connection test
