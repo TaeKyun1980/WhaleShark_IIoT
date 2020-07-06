@@ -3,7 +3,7 @@ WhaleShark IIoT, an open source monitoring system for smart factories, is a IIoT
  - Target Object
    - Process equipment and objects connected to various sensors
    - The factory manager can monitor the status of the equipment in real time by checking the values of various sensors installed in the equipment.
-   
+
 ## Documents
  - [Document Home] Will open in July
  
