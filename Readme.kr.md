@@ -2,12 +2,9 @@
 
 스마트 팩토리용 오픈소스 모니러링 시스템인 WhaleShark IIoT는 IIoT기반 공정 모니터링 시스템입니다.
  - 모니터링 대상
-   - 각종 환경 센서가 연결된 공정 설비 및 특정 사물   
-
-
-- WhaleShark IIoT의 주요 모니터링 항목 :
-  - 사용자 : 공장 관리자로써 설비에 설치된 각종 센서값을 확인하여 설비의 상태를 실시간으로 모니터링 할 수 있습니다.
-
+   - 각종 환경 센서가 연결된 공정 설비 및 특정 사물
+   - 공장 관리자로써 설비에 설치된 각종 센서값을 확인하여 설비의 상태를 실시간으로 모니터링 할 수 있습니다.
+   
 ## Documents
  - [Document Home] 7월 초 공개 예정
 
@@ -26,7 +23,7 @@
 
 ## WhaleShark IIoT에 기여하기
  - **Pull request**는 반드시 **develop branch**로 요청하여야 합니다.
- - 상세한 내용은 Blog를 참조하여 사진 학습하시기 바랍니다.
+ - 상세한 내용은 Blog를 참조하여 사 학습하시기 바랍니다.
    - https://blog.naver.com/PostList.nhn?blogId=dataignitelab&categoryNo=6
    
 ## WhaleShark IIoT 개발 방법
