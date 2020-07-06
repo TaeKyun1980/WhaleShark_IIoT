@@ -31,3 +31,6 @@ WhaleShark IIoT, an open source monitoring system for smart factories, is a IIoT
 ## License
 Licensed under the Apache License, Version 2.0
 <br>
+
+##korea
+https://github.com/prismdata/WhaleShark_IIoT/blob/master/Readme.kr.md
