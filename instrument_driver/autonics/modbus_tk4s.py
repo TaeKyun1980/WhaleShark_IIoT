@@ -3,7 +3,9 @@ import math
 
 class autonics_pid_tk4s:
 
-    ##init comport
+    """
+    init rs232 serial port
+    """
     def __init__(self):
         self.instrument = minimalmodbus.Instrument('COM3', 1, minimalmodbus.MODE_RTU) # port name, slave address (in decimal), type
         self.instrument.serial.baudrate = 19200
@@ -13,13 +15,19 @@ class autonics_pid_tk4s:
         self.instrument.serial.timeout = 1.5
         self.instrument.debug = True
         self.instrument.mode = minimalmodbus.MODE_RTU
+    
+    
     def __init__(self, mode):
         if mode == 'emulation':
             self.mode = mode
             pass
 
-    ##scanning pv
+        
     def scan_pv(self):
+        """
+        get pv value of pid controller (model name : AUTONICS tk4s)
+        """
+    
         try:
             if self.mode != 'emulation':
                 pv_address = 1000
