@@ -1,6 +1,6 @@
 import unittest
 
-from instrument_driver.modbus_tk4s import autonics_pid_tk4s
+from instrument_driver.autonics.modbus_tk4s import autonics_pid_tk4s
 from mqtt_agent.modbus_rabbitmq_agent import modbus_rabbitmq_agent
 
 

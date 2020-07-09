@@ -13,6 +13,3 @@ mqtt:
     port: 5672
     id: 'add4sys'
     pwd: 'add4s'
-
-#key: ["value1", "value2"]
-#key: value
