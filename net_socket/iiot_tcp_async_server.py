@@ -25,7 +25,7 @@ def convert_hex2decimal(packet, readable_sock):
     """
 
     stx = packet[0:1]
-    if stx == '02':
+    if stx == '2':
         time_stamp = int(packet[1:9], 16)
         utc_time = datetime.utcfromtimestamp(time_stamp) + timedelta(hours=9)
         gmt_time = utc_time.strftime('%Y-%m-%d %H:%M:%S')
@@ -76,7 +76,6 @@ def get_modbus_packet(server_sock, service_socket_list, msg_size, msg_queue):
                    if packet:
                        modbus_udp = convert_hex2decimal(packet, readable_sock)
                        msg_queue.put(modbus_udp)
-                       print(packet)
                    else:
                        service_socket_list.remove(readable_sock)
                        readable_sock.close()
@@ -84,5 +83,7 @@ def get_modbus_packet(server_sock, service_socket_list, msg_size, msg_queue):
 
 def modbus_mqtt_publish(msg_queue):
    while True:
-       print('Queue size', msg_queue.qsize())
+       if msg_queue.qsize() > 0:
+        msg_json = msg_queue.get()
+        print(msg_queue.qsize(), msg_json)
 
