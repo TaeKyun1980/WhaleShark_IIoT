@@ -4,6 +4,7 @@ from time import gmtime, strftime
 import datetime
 import calendar
 import time
+import math
 
 from instrument_driver.autonics.modbus_tk4s import autonics_pid_tk4s
 
@@ -15,9 +16,9 @@ port = 1233
 class sock_client:
 
     def __init__(self):
-        # self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # print('Waiting for connection')
-        # self.client_socket.connect((host, port))
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print('Waiting for connection')
+        self.client_socket.connect((host, port))
         pass
 
     def send_data(self,pv, precision):
@@ -30,7 +31,10 @@ class sock_client:
             stx = str.encode('{:1x}'.format(2))
             equipment_id = str.encode('TK{:02x}'.format(1))
             function_code = str.encode('PV')
+            precision = int(precision)
 
+            pv = math.pow(10, precision) * int(pv)
+            pv = int(pv)
             sensor_code = str.encode('{:04x}'.format(1))  ##sensor code 0001 (전압)
             sensor_value = str.encode('{:04x}'.format(pv))  # 측정 값에 10 ^ 소수점 자리수를 적용한 값
             precision = str.encode('{:01x}'.format(precision))  ## 소수점 자리수
