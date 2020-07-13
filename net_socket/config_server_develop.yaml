@@ -1,4 +1,0 @@
-iiot_server:
-  tcp_server:
-    ip_address: 'localhost'
-    port: 9999

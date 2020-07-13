@@ -1,0 +1,4 @@
+iiot_server:
+  tcp_server:
+    ip_address: '192.168.0.241'
+    port: 1233
