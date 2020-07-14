@@ -16,7 +16,7 @@ class autonics_pid_tk4s:
         self.instrument.serial.parity = minimalmodbus.serial.PARITY_NONE
         self.instrument.serial.stopbits = 2
         self.instrument.serial.timeout = 1.5
-        self.instrument.debug = True
+        # self.instrument.debug = True
         self.instrument.mode = minimalmodbus.MODE_RTU
 
         
@@ -28,7 +28,6 @@ class autonics_pid_tk4s:
         try:
             pv_address = 1000
             prevision_address = 1001
-            print('pv_address:', pv_address,'prevision_address:', prevision_address)
             pv = self.instrument.read_register(pv_address, 0, functioncode=int('0x04', 16))
             precision = self.instrument.read_register(prevision_address, 0, functioncode=int('0x04', 16))
             precision = math.pow(10, precision)
