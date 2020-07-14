@@ -5,7 +5,7 @@ import select
 from queue import Queue
 from datetime import datetime, timedelta
 import math
-
+import json
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 def convert_hex2decimal(packet, readable_sock):
@@ -25,18 +25,19 @@ def convert_hex2decimal(packet, readable_sock):
     """
 
     stx = packet[0:1]
-    if stx == '2':
+    etx = packet[26:28]
+    if stx == '2' and etx == '3':
         time_stamp = int(packet[1:9], 16)
         utc_time = datetime.utcfromtimestamp(time_stamp) + timedelta(hours=9)
         gmt_time = utc_time.strftime('%Y-%m-%d %H:%M:%S')
-        equipment_id = packet[9:13]
-        sensor_code = packet[13:17]
-        function_code = packet[17:19]
-        sensor_value = float(int(packet[19:23], 16))
-        precision = float(packet[23:24])
+        equipment_id = packet[9:15]
+        sensor_code = packet[15:19]
+        function_code = packet[19:21]
+        sensor_value = float(int(packet[21:25], 16))
+        precision = float(packet[25:26])
         precision = math.pow(10, precision)
         sensor_value = sensor_value / precision
-        etx = packet[24:26]
+        etx = packet[26:28]
         host, port = readable_sock.getpeername()
         modbus_udp = {'equipment_id': equipment_id, 'meta': {'ip': host,
                                                             'port': port,
@@ -46,8 +47,7 @@ def convert_hex2decimal(packet, readable_sock):
                                                             'sensor_value': sensor_value,
                                                             'precision': precision
                                                             }}
-        
-        logging.debug(modbus_udp)
+
         return modbus_udp
 
 
@@ -65,7 +65,6 @@ def get_modbus_packet(server_sock, service_socket_list, msg_size, msg_queue):
        server_sock_desc = str(service_socket_list[0]).split()
        if 'closed' not in server_sock_desc[1]:
            readable, writable, exceptional = select.select(service_socket_list, [], [])
-           print('socket count', len(service_socket_list))
            for readable_sock in readable:
                if readable_sock is server_sock:
                    conn, address = readable_sock.accept()
@@ -81,9 +80,24 @@ def get_modbus_packet(server_sock, service_socket_list, msg_size, msg_queue):
                        readable_sock.close()
 
 
-def modbus_mqtt_publish(msg_queue):
+def apply_sensor_name(db_con, message):
+    sensor_cd = message['meta']['sensor_cd']
+    sensor_cd_json = json.loads(db_con.get('sensor_cd'))
+    sensor_desc = sensor_cd_json[sensor_cd]
+    message['meta']['sensor_cd'] = sensor_desc
+    return message
+
+def modbus_mqtt_publish(msg_queue, redis_con, mq_channel, u_test=False):
    while True:
        if msg_queue.qsize() > 0:
         msg_json = msg_queue.get()
-        print(msg_queue.qsize(), msg_json)
+        if u_test == True:
+            return msg_json
+        else:
+            msg_json = apply_sensor_name(db_con=redis_con, message=msg_json)
+            routing_key = msg_json['equipment_id']
+            msg_json = json.dumps(msg_json)
+            mq_channel.basic_publish(exchange='', routing_key=routing_key, body=msg_json)
+            print(msg_json)
+
 

@@ -1,6 +1,5 @@
 import socket
 from datetime import datetime
-from time import gmtime, strftime
 import datetime
 import calendar
 import time
@@ -8,10 +7,8 @@ import math
 
 from instrument_driver.autonics.modbus_tk4s import autonics_pid_tk4s
 
-client_socket = socket.socket()
-host = '192.168.0.241'
+host = 'localhost'
 port = 1233
-
 
 class sock_client:
 
@@ -29,7 +26,7 @@ class sock_client:
             str_hex_utc_time = str(hex(unixtime)).replace('0x', '').encode()
 
             stx = str.encode('{:1x}'.format(2))
-            equipment_id = str.encode('TK{:02x}'.format(1))
+            equipment_id = str.encode('TK{:04x}'.format(1))
             function_code = str.encode('PV')
             precision = int(precision)
 
@@ -44,7 +41,7 @@ class sock_client:
             print(unixtime, str_hex_utc_time, modbus_packet, len(modbus_packet))
             try:
                 self.client_socket.send(modbus_packet)
-                time.sleep(0.5)
+                time.sleep(1)
             except socket.error as e:
                 print(str(e))
                 self.client_socket.close()
