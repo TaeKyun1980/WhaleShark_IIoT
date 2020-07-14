@@ -1,4 +1,12 @@
 iiot_server:
   tcp_server:
-    ip_address: '192.168.0.241'
+    ip_address: 'localhost'
     port: 1233
+
+  redis_server:
+    ip_address: 'localhost'
+    port: 6379
+
+  rabbit_mq:
+    ip_address: 'localhost'
+    port: 5672
