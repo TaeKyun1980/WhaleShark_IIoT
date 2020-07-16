@@ -86,9 +86,10 @@ if __name__ == '__main__':
             rabbitmq_host = config_obj['iiot_server']['rabbit_mq']['ip_address']
             rabbitmq_port = config_obj['iiot_server']['rabbit_mq']['port']
 
-        redis_con = config_equip_desc(address=redis_host, port=redis_port)
-        mq_channel = get_messagequeue(address=rabbitmq_host, port=rabbitmq_port)
-
+        # redis_con = config_equip_desc(address=redis_host, port=redis_port)
+        redis_con = None
+        # mq_channel = get_messagequeue(address=rabbitmq_host, port=rabbitmq_port)
+        mq_channel = None
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_sock.setblocking(0)
         server_sock.bind((tcp_host, tcp_port))

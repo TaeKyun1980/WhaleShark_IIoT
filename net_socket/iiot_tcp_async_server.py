@@ -48,7 +48,11 @@ def convert_hex2decimal(packet, readable_sock):
                                                             'precision': precision
                                                             }}
 
-        return modbus_udp
+        status = 'OK'
+    else:
+        status = 'ER'
+    logging.debug(status + str(modbus_udp))
+    return status, modbus_udp
 
 
 def get_modbus_packet(server_sock, service_socket_list, msg_size, msg_queue):
@@ -62,23 +66,36 @@ def get_modbus_packet(server_sock, service_socket_list, msg_size, msg_queue):
     """
 
     while service_socket_list:
-       server_sock_desc = str(service_socket_list[0]).split()
-       if 'closed' not in server_sock_desc[1]:
+       try:
            readable, writable, exceptional = select.select(service_socket_list, [], [])
            for readable_sock in readable:
                if readable_sock is server_sock:
                    conn, address = readable_sock.accept()
                    service_socket_list.append(conn)
                else:
-                   packet = readable_sock.recv(msg_size)
-                   packet = packet.decode('utf-8')
-                   if packet:
-                       modbus_udp = convert_hex2decimal(packet, readable_sock)
-                       msg_queue.put(modbus_udp)
-                   else:
-                       service_socket_list.remove(readable_sock)
-                       readable_sock.close()
+                        try:
+                            print(readable_sock)
+                            packet = readable_sock.recv(msg_size)
+                            packet = packet.decode('utf-8')
 
+                            if packet:
+                                status, modbus_udp = convert_hex2decimal(packet, readable_sock)
+                                msg_queue.put(modbus_udp)
+                                acq_message = status + packet
+                                readable_sock.sendall(acq_message.encode())
+                            else:
+                                service_socket_list.remove(readable_sock)
+                                readable_sock.close()
+                        except Exception as e:
+                            readable_sock.close()
+                            print(str(e))
+
+           for idx, ss in enumerate(service_socket_list):
+               if ss.fileno() == -1:
+                   ss.close()
+                   del service_socket_list[idx]
+       except Exception as e:
+           print(str(e))
 
 def apply_sensor_name(db_con, message):
     sensor_cd = message['meta']['sensor_cd']
@@ -94,10 +111,11 @@ def modbus_mqtt_publish(msg_queue, redis_con, mq_channel, u_test=False):
         if u_test == True:
             return msg_json
         else:
-            msg_json = apply_sensor_name(db_con=redis_con, message=msg_json)
-            routing_key = msg_json['equipment_id']
-            msg_json = json.dumps(msg_json)
-            mq_channel.basic_publish(exchange='', routing_key=routing_key, body=msg_json)
-            print(msg_json)
+            pass
+            # msg_json = apply_sensor_name(db_con=redis_con, message=msg_json)
+            # routing_key = msg_json['equipment_id']
+            # msg_json = json.dumps(msg_json)
+            # mq_channel.basic_publish(exchange='', routing_key=routing_key, body=msg_json)
+
 
 
