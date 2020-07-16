@@ -23,36 +23,47 @@ def convert_hex2decimal(packet, readable_sock):
     precision means the accuracy of sensor value, decimal point.
     The sensor value means the sensor value installed in the facility.
     """
-
-    stx = packet[0:1]
-    etx = packet[26:28]
-    if stx == '2' and etx == '3':
-        time_stamp = int(packet[1:9], 16)
-        utc_time = datetime.utcfromtimestamp(time_stamp) + timedelta(hours=9)
-        gmt_time = utc_time.strftime('%Y-%m-%d %H:%M:%S')
-        equipment_id = packet[9:15]
-        sensor_code = packet[15:19]
-        function_code = packet[19:21]
-        sensor_value = float(int(packet[21:25], 16))
-        precision = float(packet[25:26])
-        precision = math.pow(10, precision)
-        sensor_value = sensor_value / precision
+    status = 'ER'
+    modbus_udp = {'equipment_id': '', 'meta': {'ip': '',
+                                                         'port': '',
+                                                         'time':'' ,
+                                                         'sensor_cd':'' ,
+                                                         'fun_cd':'' ,
+                                                         'sensor_value': '',
+                                                         'precision':''
+                                                         }}
+    try:
+        stx = packet[0:1]
         etx = packet[26:28]
-        host, port = readable_sock.getpeername()
-        modbus_udp = {'equipment_id': equipment_id, 'meta': {'ip': host,
-                                                            'port': port,
-                                                            'time': gmt_time,
-                                                            'sensor_cd': sensor_code,
-                                                            'fun_cd': function_code,
-                                                            'sensor_value': sensor_value,
-                                                            'precision': precision
-                                                            }}
+        if stx == '2' and etx == '3':
+            time_stamp = int(packet[1:9], 16)
+            utc_time = datetime.utcfromtimestamp(time_stamp) + timedelta(hours=9)
+            gmt_time = utc_time.strftime('%Y-%m-%d %H:%M:%S')
+            equipment_id = packet[9:15]
+            sensor_code = packet[15:19]
+            function_code = packet[19:21]
+            sensor_value = float(int(packet[21:25], 16))
+            precision = float(packet[25:26])
+            precision = math.pow(10, precision)
+            sensor_value = sensor_value / precision
+            etx = packet[26:28]
+            host, port = readable_sock.getpeername()
+            modbus_udp = {'equipment_id': equipment_id, 'meta': {'ip': host,
+                                                                'port': port,
+                                                                'time': gmt_time,
+                                                                'sensor_cd': sensor_code,
+                                                                'fun_cd': function_code,
+                                                                'sensor_value': sensor_value,
+                                                                'precision': precision
+                                                                }}
 
-        status = 'OK'
-    else:
-        status = 'ER'
-    logging.debug(status + str(modbus_udp))
-    return status, modbus_udp
+            status = 'OK'
+        else:
+            status = 'ER'
+    except Exception as e:
+        print(str(e))
+    logging.debug(status + str(packet))
+    return status, str(packet), modbus_udp
 
 
 def get_modbus_packet(server_sock, service_socket_list, msg_size, msg_queue):
@@ -79,8 +90,9 @@ def get_modbus_packet(server_sock, service_socket_list, msg_size, msg_queue):
                             packet = packet.decode('utf-8')
 
                             if packet:
-                                status, modbus_udp = convert_hex2decimal(packet, readable_sock)
-                                msg_queue.put(modbus_udp)
+                                status, packet, modbus_udp = convert_hex2decimal(packet, readable_sock)
+                                if status =='OK':
+                                    msg_queue.put(modbus_udp)
                                 acq_message = status + packet
                                 readable_sock.sendall(acq_message.encode())
                             else:
