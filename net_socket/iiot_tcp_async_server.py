@@ -24,7 +24,7 @@ def convert_hex2decimal(packet, readable_sock):
     The sensor value means the sensor value installed in the facility.
     """
     status = 'ER'
-    modbus_udp = {'equipment_id': '', 'meta': {'ip': '',
+    modbus_dict = {'equipment_id': '', 'meta': {'ip': '',
                                                          'port': '',
                                                          'time':'' ,
                                                          'sensor_cd':'' ,
@@ -48,7 +48,7 @@ def convert_hex2decimal(packet, readable_sock):
             sensor_value = sensor_value / precision
             etx = packet[26:28]
             host, port = readable_sock.getpeername()
-            modbus_udp = {'equipment_id': equipment_id, 'meta': {'ip': host,
+            modbus_dict = {'equipment_id': equipment_id, 'meta': {'ip': host,
                                                                 'port': port,
                                                                 'time': gmt_time,
                                                                 'sensor_cd': sensor_code,
@@ -63,7 +63,7 @@ def convert_hex2decimal(packet, readable_sock):
     except Exception as e:
         print(str(e))
     logging.debug(status + str(packet))
-    return status, str(packet), modbus_udp
+    return status, str(packet), modbus_dict
 
 
 def get_modbus_packet(server_sock, service_socket_list, msg_size, msg_queue):
