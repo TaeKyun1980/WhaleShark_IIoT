@@ -1,3 +1,4 @@
+import asyncio
 import socket
 import logging
 import redis
@@ -9,7 +10,8 @@ import os
 import json
 import pika
 
-from net_socket.iiot_tcp_async_server import get_modbus_packet, modbus_mqtt_publish
+from net_socket.iiot_tcp_async_server import AsyncServer
+
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 def connect_redis(host, port):
@@ -70,10 +72,9 @@ def get_messagequeue(address, port):
 
     except Exception as e:
         print(str(e))
-
+        
+        
 if __name__ == '__main__':
-
-
     try:
         with open('config/config_server_develop.yaml', 'r') as file:
             config_obj = yaml.load(file, Loader=yaml.FullLoader)
@@ -92,21 +93,21 @@ if __name__ == '__main__':
         mq_channel = None
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_sock.setblocking(0)
-        server_sock.bind((tcp_host, tcp_port))
-        server_sock.listen(5)
+        server_sock.bind(('', tcp_port))
+        server_sock.listen(1)
+        
         print('IIoT Client Ready ({ip}:{port})'.format(ip=tcp_host, port=tcp_port))
-
-        service_socket_list = [server_sock]
         msg_size = 27
         msg_queue = Queue()
-        socket_thread = threading.Thread(target=get_modbus_packet,
-                                         args=(server_sock, service_socket_list, msg_size, msg_queue))
-        mqtt_thread = threading.Thread(target=modbus_mqtt_publish, args=(msg_queue,redis_con,mq_channel))
-        socket_thread.start()
-        mqtt_thread.start()
-        socket_thread.join()
-        mqtt_thread.join()
 
+        async_server = AsyncServer()
+        event_manger = asyncio.get_event_loop()
+        event_manger.run_until_complete(async_server.get_client(event_manger, server_sock, msg_size, msg_queue))
+        
+        mqtt_thread = threading.Thread(target=async_server.modbus_mqtt_publish, args=(msg_queue,redis_con,mq_channel))
+        mqtt_thread.start()
+        mqtt_thread.join()
+       
     except Exception as e:
         print(str(e))
 
