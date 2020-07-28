@@ -41,6 +41,8 @@ class sock_client:
             print(unixtime, str_hex_utc_time, modbus_packet, len(modbus_packet))
             try:
                 self.client_socket.send(modbus_packet)
+                message = self.client_socket.recv(29)
+                print(message)
                 time.sleep(1)
             except socket.error as e:
                 print(str(e))

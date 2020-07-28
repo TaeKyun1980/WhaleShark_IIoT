@@ -1,3 +1,4 @@
+import asyncio
 import socket
 import logging
 import redis
@@ -9,28 +10,55 @@ import os
 import json
 import pika
 
-from net_socket.iiot_tcp_async_server import get_modbus_packet, modbus_mqtt_publish
+from net_socket.iiot_tcp_async_server import  AsyncServer
+
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
+"""
+grafana docker
+docker run -d -p 3000:3000 grafana/grafana
+
+influxdb
+step1 : docker pull influxdb
+step2 :
+docker run -p 8086:8086 -v /Users/prismdata/Documents/1.Data_Centric/3.1.nipa_git/WhaleShark_IIoT/config:/var/lib/influxdb influxdb -config /var/lib/influxdb/influxdb.conf -e INFLUXDB_ADMIN_USER=whaleshark -e INFLUXDB_ADMIN_PASSWORD=whaleshark
+Please refer https://www.open-plant.com/knowledge-base/how-to-install-influxdb-docker-for-windows-10/
+
+"""
+
 def connect_redis(host, port):
+    """
+    get connector for redis
+    If you don't have redis, you can use docker.
+    docker network create redis-net
+    docker run --name whaleshark-redis -p 6379:6379 --network redis-net -d redis:alpine redis-server
+
+    :param host: redis access host ip
+    :param port: redis access port
+    :return: redis connector
+    """
+    redis_obj = None
     try:
         conn_params = {
         "host":host,
         "port": port,
         }
         redis_obj = redis.StrictRedis(**conn_params)
-        return redis_obj
+
     except Exception as e:
-        print(str(e))
+        logging.error(str(e))
+
+    return redis_obj
 
 
 def config_equip_desc(address, port):
     '''
-    configure redis for equipment sensor desc(sensor_cd)
+    Configure redis for equipment sensor desc(sensor_cd)
     key : const sensor_cd
     value : dictionary or map has sensor_cd:sensor description
-    :return: None
+    :return: redis connector
     '''
+    redis_con = None
     try:
         redis_con = connect_redis(address, port)
         sensor_cd_json = redis_con.get('sensor_cd')
@@ -45,15 +73,16 @@ def config_equip_desc(address, port):
             sensor_cd_json = json.loads(redis_con.get('sensor_cd'))
 
             print(sensor_cd_json)
-        return redis_con
 
     except Exception as e:
-        print(str(e))
+        logging.error(str(e))
+
+    return redis_con
 
 
 def get_messagequeue(address, port):
     '''
-    rabbitmq docker container install
+    If you don't have rabbitmq, you can use docker.
     docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
 
     get message queue connector (rabbit mq) with address, port
@@ -61,15 +90,17 @@ def get_messagequeue(address, port):
     :param port: rabbitmq server port(AMQP)
     :return: rabbitmq connection channel
     '''
+    channel = None
     try:
         credentials = pika.PlainCredentials('whaleshark', 'whaleshark')
         param = pika.ConnectionParameters(address,port, '/',credentials )
         connection = pika.BlockingConnection(param)
         channel = connection.channel()
-        return channel
 
     except Exception as e:
-        print(str(e))
+        logging.exception(str(e))
+
+    return channel
 
 if __name__ == '__main__':
 
@@ -87,25 +118,31 @@ if __name__ == '__main__':
             rabbitmq_port = config_obj['iiot_server']['rabbit_mq']['port']
 
         redis_con = config_equip_desc(address=redis_host, port=redis_port)
-        mq_channel = get_messagequeue(address=rabbitmq_host, port=rabbitmq_port)
+        if redis_con == None:
+            logging.error('redis configuration fail')
+            sys.exit()
 
+        mq_channel = get_messagequeue(address=rabbitmq_host, port=rabbitmq_port)
+        if mq_channel == None:
+            logging.error('rabbitmq configuration fail')
+            sys.exit()
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_sock.setblocking(0)
-        server_sock.bind((tcp_host, tcp_port))
-        server_sock.listen(5)
+        server_sock.bind(('', tcp_port))
+        server_sock.listen(1)
+        
         print('IIoT Client Ready ({ip}:{port})'.format(ip=tcp_host, port=tcp_port))
-
-        service_socket_list = [server_sock]
         msg_size = 27
         msg_queue = Queue()
-        socket_thread = threading.Thread(target=get_modbus_packet,
-                                         args=(server_sock, service_socket_list, msg_size, msg_queue))
-        mqtt_thread = threading.Thread(target=modbus_mqtt_publish, args=(msg_queue,redis_con,mq_channel))
-        socket_thread.start()
-        mqtt_thread.start()
-        socket_thread.join()
-        mqtt_thread.join()
 
+        async_server = AsyncServer()
+        event_manger = asyncio.get_event_loop()
+        event_manger.run_until_complete(async_server.get_client(event_manger, server_sock, msg_size, msg_queue))
+        
+        mqtt_thread = threading.Thread(target=async_server.modbus_mqtt_publish, args=(msg_queue,redis_con,mq_channel))
+        mqtt_thread.start()
+        mqtt_thread.join()
+       
     except Exception as e:
         print(str(e))
 
