@@ -1,0 +1,18 @@
+import rtconfig
+from building import *
+
+cwd = GetCurrentDir()
+src = Glob('*.c') + Glob('*.cpp')
+
+#CPPPATH = [cwd]
+CPPPATH = [cwd, str(Dir('#'))]
+
+path = [cwd]
+path += ['../Inc']
+
+SrcRemove(src, ['test_main.c'])
+
+#group = DefineGroup('Applications', src, depend = [''], CPPPATH = path)
+group = DefineGroup('Applications', src, depend = [''], CPPPATH = path)
+
+Return('group')
