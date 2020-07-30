@@ -55,7 +55,10 @@ class sock_client:
 
 if __name__ == '__main__':
     client = sock_client()
-    tk4s = autonics_pid_tk4s()
+    PARITY_NONE, PARITY_EVEN, PARITY_ODD, PARITY_MARK, PARITY_SPACE = 'N', 'E', 'O', 'M', 'S'
+    MODE_RTU = "rtu"
+    MODE_ASCII = "ascii"
+    tk4s = autonics_pid_tk4s(port='COM3', station_id=1, baudrate=19200, databits=8, parity=PARITY_NONE, stopbits=2, mode=MODE_RTU)
     while True:
-        pv, precision = tk4s.scan_pv()
+        pv, precision = tk4s.scan_pv(mem_address=1000, mem_precision=1001)
         client.send_data(pv, precision)
