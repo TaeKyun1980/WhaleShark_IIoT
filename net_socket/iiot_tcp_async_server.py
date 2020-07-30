@@ -94,7 +94,7 @@ class AsyncServer:
                     status, packet, modbus_udp = self.convert_hex2decimal(packet, client)
                     if status == 'OK':
                         msg_queue.put(modbus_udp)
-                    acq_message = status + packet
+                    acq_message = status + packet + '\r\n'
                     client.sendall(acq_message.encode())
                 else:
                     client.close()
