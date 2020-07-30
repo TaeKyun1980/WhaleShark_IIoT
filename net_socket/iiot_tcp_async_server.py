@@ -89,13 +89,17 @@ class AsyncServer:
         while True:
             try:
                 packet = (await event_manger.sock_recv(client, msg_size))
-                packet = packet.decode('utf-8')
                 if packet:
-                    status, packet, modbus_udp = self.convert_hex2decimal(packet, client)
-                    if status == 'OK':
-                        msg_queue.put(modbus_udp)
-                    acq_message = status + packet + '\r\n'
-                    client.sendall(acq_message.encode())
+                    try:
+                        packet = packet.decode('utf-8')
+                        status, packet, modbus_udp = self.convert_hex2decimal(packet, client)
+                        if status == 'OK':
+                            msg_queue.put(modbus_udp)
+                        acq_message = status + packet + '\r\n'
+                        client.sendall(acq_message.encode())
+                    except Exception as e:
+                        client.sendall(packet.encode())
+                        logging.exception('message error:' + str(e))
                 else:
                     client.close()
     
