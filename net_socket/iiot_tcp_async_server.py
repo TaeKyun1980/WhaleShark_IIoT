@@ -102,11 +102,13 @@ class AsyncServer:
                     try:
                         packet = (await event_manger.sock_recv(client, msg_size))
                         logging.debug('recv msg')
-                        
                         packet_bytes = bytes(packet)
+                        logging.debug('------------')
                         logging.debug(packet_bytes)
                         packet_byte_array = bytearray(packet_bytes)
+                        logging.debug('------------')
                         logging.debug(packet_byte_array)
+                        logging.debug('------------')
                         print(packet_byte_array)
                         
                         packet = packet_bytes.hex()
