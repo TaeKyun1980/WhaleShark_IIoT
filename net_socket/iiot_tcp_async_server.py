@@ -5,7 +5,8 @@ import math
 import json
 import calendar
 
-from datetime import datetime, timedelta
+from datetime import datetime
+import datetime
 from net_socket.signal_killer import GracefulInterruptHandler
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -42,6 +43,7 @@ class AsyncServer:
                                                              }}
         try:
             byte_tuple = self.convert(list(packet_bytes))
+            print(byte_tuple)
             if byte_tuple[0] == 2 and byte_tuple[16] == 3:
                 group = chr(byte_tuple[5]) + chr(byte_tuple[6])
                 group_code = int('0x{:02x}'.format(byte_tuple[7]) + '{:02x}'.format(byte_tuple[8]), 16)
