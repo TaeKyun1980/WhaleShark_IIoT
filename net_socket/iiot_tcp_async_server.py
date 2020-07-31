@@ -3,7 +3,10 @@ import sys
 import select
 import math
 import json
+
 from datetime import datetime, timedelta
+from net_socket.signal_killer import GracefulInterruptHandler
+
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 class AsyncServer:
@@ -73,9 +76,13 @@ class AsyncServer:
         msg_size            It means the packet size to be acquired at a time from the client socket.
         msg_queue           It means the queue containing the message transmitted from the gateway.
         """
-        while True:
-            client, _ = await event_manger.sock_accept(server_sock)
-            event_manger.create_task(self.manage_client(event_manger,  client, msg_size, msg_queue))
+        with GracefulInterruptHandler() as h:
+            while True:
+                if not h.interrupted:
+                    client, _ = await event_manger.sock_accept(server_sock)
+                    event_manger.create_task(self.manage_client(event_manger,  client, msg_size, msg_queue))
+                else:
+                    sys.exit(0)
     
     
     async def manage_client(self, event_manger, client, msg_size, msg_queue):
@@ -86,29 +93,36 @@ class AsyncServer:
             msg_size            It means the packet size to be acquired at a time from the client socket.
             msg_queue           It means the queue containing the message transmitted from the gateway.
             """
-        while True:
-            try:
-                packet = (await event_manger.sock_recv(client, msg_size))
-                if packet:
+        with GracefulInterruptHandler() as h:
+            while True:
+                if not h.interrupted:
                     try:
-                        packet = packet.decode('utf-8')
-                        status, packet, modbus_udp = self.convert_hex2decimal(packet, client)
-                        if status == 'OK':
-                            msg_queue.put(modbus_udp)
-                        acq_message = status + packet + '\r\n'
-                        client.sendall(acq_message.encode())
+                        packet = (await event_manger.sock_recv(client, msg_size))
+                        logging.debug(bytes(packet).hex())
+                        packet = bytes(packet).hex()
+                        if packet:
+                            try:
+                                logging.debug('try convert', packet)
+                                status, packet, modbus_udp = self.convert_hex2decimal(packet, client)
+                                if status == 'OK':
+                                    msg_queue.put(modbus_udp)
+                                acq_message = status + packet + '\r\n'
+                                client.sendall(acq_message.encode())
+                            except Exception as e:
+                                client.sendall(packet.encode())
+                                logging.exception('message error:' + str(e))
+                        else:
+                            client.close()
+            
                     except Exception as e:
-                        client.sendall(packet.encode())
-                        logging.exception('message error:' + str(e))
+                        logging.exception('manage client exception:' + str(e))
+                        client.close()
+                        break
                 else:
                     client.close()
-    
-            except Exception as e:
-                logging.exception('manage client exception:' + str(e))
-                client.close()
-                break
-        
+                    sys.exit(0)
                 
+
     def apply_sensor_name(self, db_con, message):
         sensor_cd = message['meta']['sensor_cd']
         sensor_cd_json = json.loads(db_con.get('sensor_cd'))

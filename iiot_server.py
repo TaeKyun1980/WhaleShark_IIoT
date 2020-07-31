@@ -127,6 +127,10 @@ if __name__ == '__main__':
         if mq_channel == None:
             logging.error('rabbitmq configuration fail')
             sys.exit()
+
+        # r_pubsub = redis_con.pubsub()
+        # r_pubsub.subscribe('classical_music')
+        
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_sock.setblocking(0)
         server_sock.bind(('', tcp_port))
@@ -134,8 +138,8 @@ if __name__ == '__main__':
         
         print('IIoT Client Ready ({ip}:{port})'.format(ip=tcp_host, port=tcp_port))
         msg_size = 27
+        
         msg_queue = Queue()
-
         async_server = AsyncServer()
         event_manger = asyncio.get_event_loop()
         event_manger.run_until_complete(async_server.get_client(event_manger, server_sock, msg_size, msg_queue))

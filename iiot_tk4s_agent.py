@@ -58,7 +58,9 @@ if __name__ == '__main__':
     PARITY_NONE, PARITY_EVEN, PARITY_ODD, PARITY_MARK, PARITY_SPACE = 'N', 'E', 'O', 'M', 'S'
     MODE_RTU = "rtu"
     MODE_ASCII = "ascii"
-    tk4s = autonics_pid_tk4s(port='COM3', station_id=1, baudrate=19200, databits=8, parity=PARITY_NONE, stopbits=2, mode=MODE_RTU)
+    widows_port = 'COM3'
+    mac_port = '/dev/cu.usbserial-AQ00WOQH'
+    tk4s = autonics_pid_tk4s(port=mac_port, station_id=1, baudrate=19200, databits=8, parity=PARITY_NONE, stopbits=2, mode=MODE_RTU)
     while True:
         pv, precision = tk4s.scan_pv(mem_address=1000, mem_precision=1001)
         client.send_data(pv, precision)
