@@ -35,6 +35,7 @@ class AsyncServer:
                                                              'precision':''
                                                              }}
         try:
+            logging.debug(packet)
             stx = packet[0:1]
             etx = packet[26:28]
             if stx == '2' and etx == '3':
@@ -98,12 +99,15 @@ class AsyncServer:
                 if not h.interrupted:
                     try:
                         packet = (await event_manger.sock_recv(client, msg_size))
+                        logging.debug('recv msg')
                         logging.debug(bytes(packet).hex())
-                        packet = bytes(packet).hex()
+                        packet_bytes = bytes(packet)
+                        logging.debug(packet_bytes)
+                        packet = packet_bytes.hex()
+                        logging.debug(packet)
                         if packet:
                             try:
                                 logging.debug('try convert')
-                                logging.debug(packet)
                                 status, packet, modbus_udp = self.convert_hex2decimal(packet, client)
                                 logging.debug(status, packet, modbus_udp)
                                 if status == 'OK':
