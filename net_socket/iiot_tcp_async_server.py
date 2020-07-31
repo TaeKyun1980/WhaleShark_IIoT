@@ -110,10 +110,6 @@ class AsyncServer:
                     try:
                         packet = (await event_manger.sock_recv(client, msg_size))
                         
-                        print(str(packet))
-                        byte_list = list(packet)
-                        print(byte_list)
-                        
                         if packet:
                             try:
                                 logging.debug('try convert')
