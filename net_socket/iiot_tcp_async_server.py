@@ -72,7 +72,7 @@ class AsyncServer:
             else:
                 status = 'ER'
         except Exception as e:
-            print(str(e))
+            logging.exception(str(e))
         logging.debug(status + str(packet_bytes))
         return status, str(packet_bytes), modbus_dict
     
@@ -109,7 +109,6 @@ class AsyncServer:
                 if not h.interrupted:
                     try:
                         packet = (await event_manger.sock_recv(client, msg_size))
-                        
                         if packet:
                             try:
                                 logging.debug('try convert')
