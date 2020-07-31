@@ -3,6 +3,7 @@ import sys
 import select
 import math
 import json
+import calendar
 
 from datetime import datetime, timedelta
 from net_socket.signal_killer import GracefulInterruptHandler
@@ -10,7 +11,12 @@ from net_socket.signal_killer import GracefulInterruptHandler
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 class AsyncServer:
-    def convert_hex2decimal(self, packet, readable_sock):
+    
+    def convert(self, list):
+        return tuple(i for i in list)
+    
+    
+    def convert_hex2decimal(self, packet_bytes, readable_sock):
         """
         In the packet, the hexadecimal value is converted to a decimal value, structured in json format, and returned.
         
@@ -35,27 +41,29 @@ class AsyncServer:
                                                              'precision':''
                                                              }}
         try:
-            logging.debug(packet)
-            stx = packet[0:1]
-            etx = packet[26:28]
-            if stx == '2' and etx == '3':
-                time_stamp = int(packet[1:9], 16)
-                utc_time = datetime.utcfromtimestamp(time_stamp) + timedelta(hours=9)
-                gmt_time = utc_time.strftime('%Y-%m-%d %H:%M:%S')
-                equipment_id = packet[9:15]
-                sensor_code = packet[15:19]
-                function_code = packet[19:21]
-                sensor_value = float(int(packet[21:25], 16))
-                precision = float(packet[25:26])
-                precision = math.pow(10, precision)
-                sensor_value = sensor_value / precision
-                etx = packet[26:28]
+            byte_tuple = self.convert(list(packet_bytes))
+            if byte_tuple[0] == 2 and byte_tuple[16] == 3:
+                group = chr(byte_tuple[5]) + chr(byte_tuple[6])
+                group_code = int('0x{:02x}'.format(byte_tuple[7]) + '{:02x}'.format(byte_tuple[8]), 16)
+                group_code = '{0:04d}'.format(group_code)
+    
+                sensor_code = int('0x{:02x}'.format(byte_tuple[9]) + '{:02x}'.format(byte_tuple[10]), 16)
+                sensor_code = '{0:04d}'.format(sensor_code)
+    
+                pv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14])
+                sensor_value = int(pv, 16)
+                precision = int('0x{:02x}'.format(byte_tuple[15]), 16)
+                
+                d = datetime.datetime.utcnow()
+                unixtime = calendar.timegm(d.utctimetuple())
+                str_hex_utc_time = str(hex(unixtime)).replace('0x', '').encode()
+                
                 host, port = readable_sock.getpeername()
-                modbus_dict = {'equipment_id': equipment_id, 'meta': {'ip': host,
+                modbus_dict = {'equipment_id': group+group_code, 'meta': {'ip': host,
                                                                     'port': port,
-                                                                    'time': gmt_time,
+                                                                    'time': str_hex_utc_time,
                                                                     'sensor_cd': sensor_code,
-                                                                    'fun_cd': function_code,
+                                                                    'fun_cd': 'PV',
                                                                     'sensor_value': sensor_value,
                                                                     'precision': precision
                                                                     }}
@@ -65,8 +73,8 @@ class AsyncServer:
                 status = 'ER'
         except Exception as e:
             print(str(e))
-        logging.debug(status + str(packet))
-        return status, str(packet), modbus_dict
+        logging.debug(status + str(packet_bytes))
+        return status, str(packet_bytes), modbus_dict
     
     
     async def get_client(self, event_manger, server_sock, msg_size, msg_queue):
