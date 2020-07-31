@@ -104,14 +104,12 @@ class AsyncServer:
                         print('-----recv msg-----')
                         packet_bytes = bytes(packet)
                         print(packet_bytes)
-                        packet_byte_array = bytearray(packet_bytes)
+                        packet_byte_array = bytearray(packet_bytes, 'ASCII')
                         print('------------')
-                        print(packet_byte_array)
+                        print(list(packet_byte_array))
                         print('------------')
-                        print(packet_byte_array)
-                        
                         packet = packet_bytes.hex()
-                        logging.debug(packet)
+                        print(packet)
                         
                         if packet:
                             try:
