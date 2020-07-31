@@ -101,15 +101,9 @@ class AsyncServer:
                 if not h.interrupted:
                     try:
                         packet = (await event_manger.sock_recv(client, msg_size))
-                        print('-----recv msg-----')
-                        packet_bytes = bytes(packet)
-                        print(packet_bytes)
-                        packet_byte_array = bytearray(packet_bytes)
-                        print('------------')
-                        print(list(packet_byte_array))
-                        print('------------')
-                        packet = packet_bytes.hex()
-                        print(packet)
+                        print(str(packet))
+                        byte_list = list(packet)
+                        print(byte_list)
                         
                         if packet:
                             try:
