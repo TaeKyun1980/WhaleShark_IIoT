@@ -75,7 +75,7 @@ class AsyncServer:
                 status = 'ER'
         except Exception as e:
             logging.exception(str(e))
-        logging.debug(status + str(packet_bytes))
+        logging.debug(status + str(packet_bytes) + str(modbus_dict))
         return status, str(packet_bytes), modbus_dict
     
     
