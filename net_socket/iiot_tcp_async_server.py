@@ -104,7 +104,7 @@ class AsyncServer:
                         print('-----recv msg-----')
                         packet_bytes = bytes(packet)
                         print(packet_bytes)
-                        packet_byte_array = bytearray(packet_bytes, 'ASCII')
+                        packet_byte_array = bytearray(packet_bytes)
                         print('------------')
                         print(list(packet_byte_array))
                         print('------------')
