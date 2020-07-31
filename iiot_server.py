@@ -130,8 +130,6 @@ if __name__ == '__main__':
 
         # r_pubsub = redis_con.pubsub()
         # r_pubsub.subscribe('classical_music')
-        Int32Bit = 214748300
-        Int16Bit = 400
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_sock.setblocking(0)
         server_sock.bind(('', tcp_port))
