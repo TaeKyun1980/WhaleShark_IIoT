@@ -83,6 +83,8 @@ class AsyncServer:
                     client, _ = await event_manger.sock_accept(server_sock)
                     event_manger.create_task(self.manage_client(event_manger,  client, msg_size, msg_queue))
                 else:
+                    client.close()
+                    server_sock.close()
                     sys.exit(0)
     
     
@@ -101,6 +103,7 @@ class AsyncServer:
                         packet = (await event_manger.sock_recv(client, msg_size))
                         logging.debug('recv msg')
                         packet_bytes = bytes(packet)
+                        print(packet_bytes)
                         logging.debug(packet_bytes)
                         packet = packet_bytes.hex()
                         logging.debug(packet)
