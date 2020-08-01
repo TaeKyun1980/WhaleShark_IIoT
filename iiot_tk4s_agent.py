@@ -62,5 +62,5 @@ if __name__ == '__main__':
     mac_port = '/dev/cu.usbserial-AQ00WOQH'
     tk4s = autonics_pid_tk4s(port=mac_port, station_id=1, baudrate=19200, databits=8, parity=PARITY_NONE, stopbits=2, mode=MODE_RTU)
     while True:
-        pv, precision = tk4s.scan_pv(mem_address=1000, mem_precision=1001)
+        pv, precision = tk4s.scan_pv()
         client.send_data(pv, precision)
