@@ -149,11 +149,11 @@ class AsyncServer:
             if u_test == True:
                 return msg_json
             else:
-                pass
-                # msg_json = apply_sensor_name(db_con=redis_con, message=msg_json)
-                # routing_key = msg_json['equipment_id']
-                # msg_json = json.dumps(msg_json)
-                # mq_channel.basic_publish(exchange='', routing_key=routing_key, body=msg_json)
+                msg_json = self.apply_sensor_name(db_con=redis_con, message=msg_json)
+                routing_key = msg_json['equipment_id']
+                msg_json = json.dumps(msg_json)
+                logging.debug('mqtt publish', msg_json)
+                mq_channel.basic_publish(exchange='', routing_key=routing_key, body=msg_json)
 
 
 

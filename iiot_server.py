@@ -24,16 +24,21 @@ step2 :
 
 docker run -p 8086:8086 -v $PROJECT_PATH/WhaleShark_IIoT/config:/var/lib/influxdb influxdb -config /var/lib/influxdb/influxdb.conf -e INFLUXDB_ADMIN_USER=whaleshark -e INFLUXDB_ADMIN_PASSWORD=whaleshark
 Please refer https://www.open-plant.com/knowledge-base/how-to-install-influxdb-docker-for-windows-10/
-
 """
 
 def connect_redis(host, port):
     """
-    get connector for redis
-    If you don't have redis, you can use docker.
-    docker network create redis-net
-    docker run --name whaleshark-redis -p 6379:6379 --network redis-net -d redis:alpine redis-server
-
+    Get connector for redis
+    If you don't have redis, you can use redis on docker with follow steps.
+    Getting most recent redis image
+    shell: docker pull redis
+    
+    Running redis server
+    shell: docker run --name whaleshark-redis -d -p 6379:6379 redis
+    
+    Connecting redis-cli with docker
+    shell: docker run -it --link whaleshark-redis:redis --rm redis redis-cli -h redis -p 6379
+    
     :param host: redis access host ip
     :param port: redis access port
     :return: redis connector
@@ -52,7 +57,7 @@ def connect_redis(host, port):
     return redis_obj
 
 
-def config_equip_desc(address, port):
+def config_equip_desc(address, port, init = False):
     '''
     Configure redis for equipment sensor desc(sensor_cd)
     key : const sensor_cd
@@ -62,19 +67,32 @@ def config_equip_desc(address, port):
     redis_con = None
     try:
         redis_con = connect_redis(address, port)
-        sensor_cd_json = redis_con.get('sensor_cd')
+        facilities_dict = redis_con.get('facilities_info')
+        
+        if facilities_dict == None:
+            facilities_dict = {'TS0001':{
+                                '0001':'TS_VOLT1_(RS)',
+                                '0002':'TS_VOLT1_(ST)',
+                                '0003':'TS_VOLT1_(RT)',
+                                '0004':'TS_AMP1_(R)',
+                                '0005':'TS_AMP1_(S)',
+                                '0006':'TS_AMP1_(T)',
+                                '0007':'INNER_PRESS',
+                                '0008':'PUMP_PRESS',
+                                '0009':'TEMPERATURE1',
+                                '0010':'OVER_TEMP'
+                            }
+            }
+            facilities_json = json.dumps(facilities_dict)
 
-        if sensor_cd_json == None:
-            sensor_cd_dict = {'0001':'Power#1 Volt',
-                              '0002':'Power#1 Amp'
-                              }
-            sensor_cd_json = json.dumps(sensor_cd_dict)
+            redis_con.set('facilities_info', facilities_json)
+            facilities_json = json.loads(redis_con.get('facilities_info'))
 
-            redis_con.set('sensor_cd', sensor_cd_json)
-            sensor_cd_json = json.loads(redis_con.get('sensor_cd'))
-
-            print(sensor_cd_json)
-
+            print(facilities_json)
+        else:
+            if init == True:
+                redis_con.delete('facilities_info')
+                
     except Exception as e:
         logging.error(str(e))
 
