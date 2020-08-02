@@ -145,6 +145,8 @@ class AsyncServer:
     def modbus_mqtt_publish(self, msg_queue, redis_con, mq_channel, u_test=False):
        while True:
            if msg_queue.qsize() > 0:
+            if u_test == True:
+                print('Test Mode')
             msg_json = msg_queue.get()
             if u_test == True:
                 return msg_json
