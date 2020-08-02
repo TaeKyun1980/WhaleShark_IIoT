@@ -141,7 +141,7 @@ class AsyncServer:
         sensor_code = message['meta']['sensor_cd']
         redis_sensor_info = json.loads(db_con.get('facilities_info'))
         sensor_desc = redis_sensor_info[equipment_id][sensor_code]
-        message['meta']['sensor_code'] = sensor_desc
+        message['meta']['sensor_desc'] = sensor_desc
         return message
     
     
