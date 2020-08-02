@@ -135,10 +135,10 @@ class AsyncServer:
                 
 
     def apply_sensor_name(self, db_con, message):
-        sensor_cd = message['meta']['sensor_cd']
-        sensor_cd_json = json.loads(db_con.get('sensor_cd'))
+        sensor_cd = message['meta']['facilities_info']
+        sensor_cd_json = json.loads(db_con.get('facilities_info'))
         sensor_desc = sensor_cd_json[sensor_cd]
-        message['meta']['sensor_cd'] = sensor_desc
+        message['meta']['facilities_info'] = sensor_desc
         return message
     
     
@@ -149,10 +149,12 @@ class AsyncServer:
             if u_test == True:
                 return msg_json
             else:
-                msg_json = self.apply_sensor_name(db_con=redis_con, message=msg_json)
-                routing_key = msg_json['equipment_id']
-                msg_json = json.dumps(msg_json)
                 logging.debug('mqtt publish', msg_json)
+                msg_json = self.apply_sensor_name(db_con=redis_con, message=msg_json)
+                
+                routing_key = msg_json['facilities_info']
+                msg_json = json.dumps(msg_json)
+                logging.debug('facilities_info', routing_key)
                 mq_channel.basic_publish(exchange='', routing_key=routing_key, body=msg_json)
 
 
