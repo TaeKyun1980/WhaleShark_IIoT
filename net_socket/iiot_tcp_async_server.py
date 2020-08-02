@@ -4,7 +4,7 @@ import select
 import math
 import json
 import calendar
-
+import time
 from datetime import datetime
 import datetime
 from net_socket.signal_killer import GracefulInterruptHandler
@@ -147,6 +147,7 @@ class AsyncServer:
     
     def modbus_mqtt_publish(self, msg_queue, redis_con, mq_channel, u_test=False):
        while True:
+           time.sleep(0.01)
            if msg_queue.qsize() > 0:
             if u_test == True:
                 print('Test Mode')

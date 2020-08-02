@@ -145,9 +145,7 @@ if __name__ == '__main__':
         if mq_channel == None:
             logging.error('rabbitmq configuration fail')
             sys.exit()
-
-        # r_pubsub = redis_con.pubsub()
-        # r_pubsub.subscribe('classical_music')
+            
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_sock.setblocking(0)
         server_sock.bind(('', tcp_port))
