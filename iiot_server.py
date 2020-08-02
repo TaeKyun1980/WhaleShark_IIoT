@@ -154,14 +154,16 @@ if __name__ == '__main__':
         server_sock.listen(1)
         print('IIoT Client Ready ({ip}:{port})'.format(ip=tcp_host, port=tcp_port))
         msg_size = 27
-        
-        msg_queue = Queue()
+
         async_server = AsyncServer()
-        event_manger = asyncio.get_event_loop()
-        event_manger.run_until_complete(async_server.get_client(event_manger, server_sock, msg_size, msg_queue))
+        msg_queue = Queue()
         
         mqtt_thread = threading.Thread(target=async_server.modbus_mqtt_publish, args=(msg_queue,redis_con,mq_channel))
         mqtt_thread.start()
+        
+        event_manger = asyncio.get_event_loop()
+        event_manger.run_until_complete(async_server.get_client(event_manger, server_sock, msg_size, msg_queue))
+        
         mqtt_thread.join()
        
     except Exception as e:

@@ -58,7 +58,7 @@ class AsyncServer:
                 
                 d = datetime.datetime.utcnow()
                 unixtime = calendar.timegm(d.utctimetuple())
-                str_hex_utc_time = str(hex(unixtime)).replace('0x', '').encode()
+                str_hex_utc_time = str(d)
                 
                 host, port = readable_sock.getpeername()
                 modbus_dict = {'equipment_id': group+group_code, 'meta': {'ip': host,
@@ -116,7 +116,8 @@ class AsyncServer:
                                 logging.debug('try convert')
                                 status, packet, modbus_udp = self.convert_hex2decimal(packet, client)
                                 if status == 'OK':
-                                    logging.debug('Queue put', str(modbus_udp))
+                                    str_modbus_udp = str(modbus_udp)
+                                    logging.debug('Queue put:'+ str_modbus_udp)
                                     msg_queue.put(modbus_udp)
                                 acq_message = status + packet + '\r\n'
                                 client.sendall(acq_message.encode())
@@ -128,7 +129,7 @@ class AsyncServer:
             
                     except Exception as e:
                         logging.exception('manage client exception:' + str(e))
-                        client.close()
+                        # client.close()
                         break
                 else:
                     client.close()
@@ -136,10 +137,11 @@ class AsyncServer:
                 
 
     def apply_sensor_name(self, db_con, message):
-        sensor_cd = message['meta']['facilities_info']
-        sensor_cd_json = json.loads(db_con.get('facilities_info'))
-        sensor_desc = sensor_cd_json[sensor_cd]
-        message['meta']['facilities_info'] = sensor_desc
+        equipment_id = message['equipment_id']
+        sensor_code = message['meta']['sensor_cd']
+        redis_sensor_info = json.loads(db_con.get('facilities_info'))
+        sensor_desc = redis_sensor_info[equipment_id][sensor_code]
+        message['meta']['sensor_code'] = sensor_desc
         return message
     
     
@@ -152,13 +154,16 @@ class AsyncServer:
             if u_test == True:
                 return msg_json
             else:
-                logging.debug('mqtt publish', msg_json)
-                msg_json = self.apply_sensor_name(db_con=redis_con, message=msg_json)
-                
-                routing_key = msg_json['facilities_info']
-                msg_json = json.dumps(msg_json)
-                logging.debug('facilities_info', routing_key)
-                mq_channel.basic_publish(exchange='', routing_key=routing_key, body=msg_json)
+                try:
+                    msg_json = self.apply_sensor_name(db_con=redis_con, message=msg_json)
+                    routing_key = msg_json['equipment_id']
+                    # msg_body = str(msg_json['meta'])
+                    msg_body = json.dumps(msg_json['meta'])
+                    logging.debug('equipment_id:'+routing_key)
+                    logging.debug('mqtt publish:' + str(msg_body))
+                    # mq_channel.basic_publish(exchange='', routing_key=routing_key, body=msg_body)
+                except Exception as e:
+                    print(e)
 
 
 
