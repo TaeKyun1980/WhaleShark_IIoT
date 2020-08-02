@@ -116,6 +116,7 @@ class AsyncServer:
                                 logging.debug('try convert')
                                 status, packet, modbus_udp = self.convert_hex2decimal(packet, client)
                                 if status == 'OK':
+                                    logging.debug('Queue put', modbus_udp)
                                     msg_queue.put(modbus_udp)
                                 acq_message = status + packet + '\r\n'
                                 client.sendall(acq_message.encode())
