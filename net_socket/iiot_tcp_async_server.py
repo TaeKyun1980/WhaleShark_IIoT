@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import sys
 import select
@@ -44,17 +45,28 @@ class AsyncServer:
         try:
             byte_tuple = self.convert(list(packet_bytes))
             print(byte_tuple)
-            if byte_tuple[0] == 2 and byte_tuple[16] == 3:
+            
+            if byte_tuple[0] == 2 and (byte_tuple[16] == 3 or byte_tuple[18] == 3):
                 group = chr(byte_tuple[5]) + chr(byte_tuple[6])
                 group_code = int('0x{:02x}'.format(byte_tuple[7]) + '{:02x}'.format(byte_tuple[8]), 16)
                 group_code = '{0:04d}'.format(group_code)
     
                 sensor_code = int('0x{:02x}'.format(byte_tuple[9]) + '{:02x}'.format(byte_tuple[10]), 16)
                 sensor_code = '{0:04d}'.format(sensor_code)
-    
-                pv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14])
+
+                if sensor_code == '0007' or sensor_code == '0008':
+                    """
+                    Pressure Exception Controll
+                    """
+                    logging.debug('pressure:' + str(sensor_code))
+                    pv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14]) + '{:02x}'.format(
+                        byte_tuple[15]) + '{:02x}'.format(byte_tuple[16])
+                    precision = int('0x{:02x}'.format(byte_tuple[17]), 16)
+                else:
+                    pv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14])
+                    precision = int('0x{:02x}'.format(byte_tuple[15]), 16)
                 sensor_value = int(pv, 16)
-                precision = int('0x{:02x}'.format(byte_tuple[15]), 16)
+                
                 
                 d = datetime.datetime.utcnow()
                 unixtime = calendar.timegm(d.utctimetuple())
@@ -79,7 +91,7 @@ class AsyncServer:
         return status, str(packet_bytes), modbus_dict
     
     
-    async def get_client(self, event_manger, server_sock, msg_size, msg_queue):
+    async def get_client(self, event_manger, server_sock, msg_size,redis_con, mq_channel):
         """
         It create client socket with server sockt
         event_manger        It has asyncio event loop
@@ -91,14 +103,25 @@ class AsyncServer:
             while True:
                 if not h.interrupted:
                     client, _ = await event_manger.sock_accept(server_sock)
-                    event_manger.create_task(self.manage_client(event_manger,  client, msg_size, msg_queue))
+                    event_manger.create_task(self.manage_client(event_manger,  client, msg_size, redis_con,mq_channel))
                 else:
                     client.close()
                     server_sock.close()
                     sys.exit(0)
-    
-    
-    async def manage_client(self, event_manger, client, msg_size, msg_queue):
+
+    @asyncio.coroutine
+    def do_work(self, envelope, body):
+        yield from asyncio.sleep(int(body))
+        print("consumer {} recved {} ({})".format(envelope.consumer_tag, body, envelope.delivery_tag))
+
+    @asyncio.coroutine
+    def callback(self, body, envelope, properties):
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.do_work(envelope, body))
+        
+    async def manage_client(self, event_manger, client, msg_size, redis_con, mq_channel):
+        
+            
         """
             It receives modbus data from iiot gateway using client socket.
             event_manger        It has asyncio event loop
@@ -118,25 +141,39 @@ class AsyncServer:
                                 if status == 'OK':
                                     str_modbus_udp = str(modbus_udp)
                                     logging.debug('Queue put:'+ str_modbus_udp)
-                                    msg_queue.put(modbus_udp)
-                                acq_message = status + packet + '\r\n'
-                                client.sendall(acq_message.encode())
+                                    # msg_queue.put(modbus_udp)
+                                    equipment_id = modbus_udp['equipment_id']
+                                    sensor_code = modbus_udp['meta']['sensor_cd']
+                                    redis_sensor_info = json.loads(redis_con.get('facilities_info'))
+                                    
+                                    if equipment_id in redis_sensor_info.keys():
+                                        sensor_desc = redis_sensor_info[equipment_id][sensor_code]
+                                        modbus_udp['meta']['sensor_desc'] = sensor_desc
+                                        routing_key = modbus_udp['equipment_id']
+                                        
+                                        msg_body = json.dumps(modbus_udp['meta'])
+                                        logging.debug('equipment_id:' + routing_key)
+                                        logging.debug('mqtt publish:' + str(msg_body))
+                                        
+                                        mq_channel.basic_publish(exchange='', routing_key=routing_key, body=msg_body)
+                                        
+                                    else:
+                                        acq_message = status + packet + 'no exist key\r\n'
+                                        client.sendall(acq_message.encode())
                             except Exception as e:
                                 client.sendall(packet.encode())
                                 logging.exception('message error:' + str(e))
                         else:
                             client.close()
-            
                     except Exception as e:
                         logging.exception('manage client exception:' + str(e))
-                        # client.close()
                         break
                 else:
                     client.close()
                     sys.exit(0)
                 
 
-    def apply_sensor_name(self, db_con, message):
+    async def apply_sensor_name(self, db_con, message):
         equipment_id = message['equipment_id']
         sensor_code = message['meta']['sensor_cd']
         redis_sensor_info = json.loads(db_con.get('facilities_info'))

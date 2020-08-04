@@ -122,7 +122,6 @@ def get_messagequeue(address, port):
 
 if __name__ == '__main__':
 
-
     try:
         with open('config/config_server_develop.yaml', 'r') as file:
             config_obj = yaml.load(file, Loader=yaml.FullLoader)
@@ -153,15 +152,13 @@ if __name__ == '__main__':
         msg_size = 27
 
         async_server = AsyncServer()
-        msg_queue = Queue()
-        
-        mqtt_thread = threading.Thread(target=async_server.modbus_mqtt_publish, args=(msg_queue,redis_con,mq_channel))
-        mqtt_thread.start()
+        # msg_queue = Queue()
+        # mqtt_thread = threading.Thread(target=async_server.modbus_mqtt_publish, args=(msg_queue,redis_con,mq_channel))
+        # mqtt_thread.start()
         
         event_manger = asyncio.get_event_loop()
-        event_manger.run_until_complete(async_server.get_client(event_manger, server_sock, msg_size, msg_queue))
-        
-        mqtt_thread.join()
+        event_manger.run_until_complete(async_server.get_client(event_manger, server_sock, msg_size, redis_con, mq_channel))
+        # mqtt_thread.join()
        
     except Exception as e:
         print(str(e))
