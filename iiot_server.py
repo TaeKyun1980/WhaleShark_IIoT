@@ -33,11 +33,10 @@ def connect_redis(host, port):
     Getting most recent redis image
     shell: docker pull redis
     
-    Running redis server
-    shell: docker run --name whaleshark-redis -d -p 6379:6379 redis
-    
-    Connecting redis-cli with docker
-    shell: docker run -it --link whaleshark-redis:redis --rm redis redis-cli -h redis -p 6379
+    docker pull redis
+    docker run --name whaleshark-redis -d -p 6379:6379 redis
+    docker run -it --link whaleshark-redis:redis --rm redis redis-cli -h redis -p 6379
+
     
     :param host: redis access host ip
     :param port: redis access port
@@ -84,8 +83,8 @@ def config_equip_desc(address, port, init = False):
                             }
             }
             facilities_json = json.dumps(facilities_dict)
-
             redis_con.set('facilities_info', facilities_json)
+            logging.debug('put key facilities_info ')
             facilities_json = json.loads(redis_con.get('facilities_info'))
 
             print(facilities_json)
