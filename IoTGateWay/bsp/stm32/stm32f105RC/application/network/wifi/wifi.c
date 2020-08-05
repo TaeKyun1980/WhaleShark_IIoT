@@ -22,14 +22,19 @@
 #define NETMASK			"netmask"
 #define SEND_DATA_OK	"SEND OK"
 #define SEND_DATA_FAIL	"SEND FAIL"
+#define TCP_RECEIVE		"+IPD" //Received Data
+#define ENTER_THE_DATA	">" //Enter The Data
 #define WIFI_BAUD_RATE	BAUD_RATE_115200
-#define CMD_MAX_LEN		128
+#define CMD_MAX_LEN		256 //128 -> 256
 #define WIFI_MAX_LEN	64
 #define WIFI_RESP_TIMEOUT_DELAY	20000
+#define WIFI_SEND_TIMEOUT_DELAY	5000 //Send TimeOut Value
 
 // ID, COMMAND, COMMAND DESCRIPTION
 static WIFICOMMANDINFO commandInfo[] = {
-	{CMD_RESTART,"RST","[Restart the Wi-Fi Module.]\r\n"},
+	{CMD_RESTART,"RST","[Restart.]\r\n"},
+	{CDM_ECHO_OFF, "ATE0", "[Sets Echo Off.]\r\n"},
+	{CMD_DISABLE_SLEEP_MODE, "SLEEP", "[Sets Sleep Mode.]\r\n"},
 	{CMD_SET_MODE, "CWMODE_DEF", "[Sets the default Wi-Fi mode (Station/AP/Station+AP).]\r\n"},
 	{CMD_QUERY_MODE, "CWMODE_DEF?", "[Query the current Wi-Fi mode.]\r\n"},
 	{CMD_GET_MODE, "CWMODE_DEF:", "[Get the current Wi-Fi mode.]\r\n"},
@@ -44,29 +49,12 @@ static WIFICOMMANDINFO commandInfo[] = {
 	{CMD_GET_LOCAL_INFO,"CIPSTA_DEF:","[Get Local Info. (Local IP, Gateway, netmask)]\r\n"},
 	{CMD_DISCONNECT_AP, "CWQAP", "[Disconnects from an AP.]\r\n"},
 	{CMD_TCP_CONNECT, "CIPSTART", "[Single TCP Connection.]\r\n"},
-	{CMD_SET_SEND_DATA_LENGTH,"CIPSENDEX","[Set Data Length.]\r\n"},
+	{CMD_SET_SEND_DATA_LENGTH,"CIPSEND","[Set Data Length.]\r\n"},
 	{CMD_QUERY_MAC_INFO,"CIPSTAMAC_DEF?","[Query Mac Address.]\r\n"},
 	{CMD_GET_MAC_INFO,"CIPSTAMAC_DEF:","[Get Mac Address.]\r\n"},
-	{CMD_SET_MAC_INFO,"CIPSTAMAC_DEF","[Set Mac Address.]\r\n"}
-};
-
-static DESCPRIPTION wifiModeInfo[] = {
-	{"Null Mode \r\n"},
-	{"Station Mode \r\n"},
-	{"SoftAp Mode \r\n"},
-	{"SoftAp and Station Mode \r\n"}
-};
-
-static DESCPRIPTION wifiErrorInfo[] = {
-	{"Connection Timeout \r\n"},
-	{"Wrong Password \r\n"},
-	{"Cannot Find the Target AP \r\n"},
-	{"Connection Failed \r\n"}
-};
-
-static DESCPRIPTION dhchInfo[] = {
-	{"Station DHCP Disable \r\n"},
-	{"Station DHCP Enable \r\n"},
+	{CMD_SET_MAC_INFO,"CIPSTAMAC_DEF","[Set Mac Address.]\r\n"},
+	{CMD_RECEIVE_DATA,"IPD","[Receive Data.]\r\n"},
+	{CMD_TCP_DISCONNECT,"CIPCLOSE","[Close TCP Connection]\r\n"}
 };
 
 typedef struct _WifiInfo
@@ -76,11 +64,25 @@ typedef struct _WifiInfo
 	rt_device_t uport;
 	rt_event_t  rx_event;
 	rt_timer_t	wifiTimeoutTimer;
+	rt_timer_t	sendTimeoutTimer; //Send Tumeout Timer
 	NetworkInfoData networkInfoData;
 
 	rt_uint8_t responseLen;
+	rt_uint16_t txLen;
 
-	rt_uint8_t txBuf[RT_SERIAL_RB_BUFSZ];
+	//dhcp
+	rt_uint8_t mode;
+	rt_uint8_t dhcp;
+
+	//Wi-Fi Info
+	rt_uint8_t ssid[64];
+	rt_uint8_t password[64];
+
+	//TCP Info
+	rt_uint8_t remoteIp[16];
+	rt_uint16_t remotePort;
+
+	rt_uint8_t txBuf[CMD_MAX_LEN];
 	rt_uint8_t rxBuf[RT_SERIAL_RB_BUFSZ];
 }WifiInfo;
 
@@ -91,6 +93,18 @@ void WifiTimeoutTimer(void *params)
 	WifiInfo *p_handle = (WifiInfo *)params;
 
 	p_handle->mqData.messge = SMSG_WIFI_TIMEOUT;
+    //Copy the Network Status
+	rt_memcpy(p_handle->mqData.data,&p_handle->networkInfoData,p_handle->mqData.size=sizeof(p_handle->networkInfoData.data));
+	NetworkMangerSendMessage(&p_handle->mqData);
+
+	p_handle->networkInfoData.response = RESPONSE_WIFI_RESPONSE_MAX;
+}
+
+void SendTimeoutTimer(void *params)
+{
+	WifiInfo *p_handle = (WifiInfo *)params;
+
+	p_handle->mqData.messge = SMSG_WIFI_ERROR;
 	NetworkMangerSendMessage(&p_handle->mqData);
 
 	p_handle->networkInfoData.response = RESPONSE_WIFI_RESPONSE_MAX;
@@ -157,14 +171,21 @@ rt_err_t SendWifiCommand(wifiCommandID id)
 	switch(id)
 	{
 	case CMD_RESTART:
-		wifiInfo.networkInfoData.networkStatus = STATUS_NONE;
+		wifiInfo.networkInfoData.networkStatus = STATUS_WIFI_RESTART; //set status
 		len = rt_sprintf((char *)cmd,"%s%s",WIFI_CMD_PREFIX,commandInfo[CMD_RESTART].szCli);
+		break;
+	case CDM_ECHO_OFF: //uart echo off
+		wifiInfo.networkInfoData.networkStatus = STATUS_ECHO_OFF;
+		len = rt_sprintf((char *)cmd,"%s",commandInfo[CDM_ECHO_OFF].szCli);
+		break;
+	case CMD_DISABLE_SLEEP_MODE: //disable sleep mode
+		wifiInfo.networkInfoData.networkStatus = STATUS_DISABLE_SLEEP_MODE;
+		len = rt_sprintf((char *)cmd,"%s%s=0",WIFI_CMD_PREFIX,commandInfo[CMD_DISABLE_SLEEP_MODE].szCli);
 		break;
 	case CMD_SET_MODE:
 		rt_kprintf("Set Station Mode\r\n");
 		wifiInfo.networkInfoData.networkStatus = STATUS_SET_WIFI_MODE;
-		wifiInfo.responseLen = rt_strlen(commandInfo[CMD_GET_MODE].szCli);
-		len = rt_sprintf((char *)cmd,"%s%s=%d",WIFI_CMD_PREFIX,commandInfo[CMD_SET_MODE].szCli,StationMode);
+		len = rt_sprintf((char *)cmd,"%s%s=%c",WIFI_CMD_PREFIX,commandInfo[CMD_SET_MODE].szCli,StationMode);
 		break;
 	case CMD_QUERY_MODE:
 		wifiInfo.networkInfoData.networkStatus = STATUS_CHECK_WIFI_MODE;
@@ -172,12 +193,8 @@ rt_err_t SendWifiCommand(wifiCommandID id)
 		len = rt_sprintf((char *)cmd,"%s%s",WIFI_CMD_PREFIX,commandInfo[CMD_QUERY_MODE].szCli);
 		break;
 	case CMD_SET_DHCP:
-		{
-			wifiInfo.networkInfoData.networkStatus = STATUS_SET_DHCP;
-			rt_uint8_t mode = 1; //Station
-			rt_uint8_t dhcp = GetDhcpMode(); //Dhcp
-			len = rt_sprintf((char *)cmd,"%s%s=%d,%d",WIFI_CMD_PREFIX,commandInfo[CMD_SET_DHCP].szCli,mode,dhcp);
-		}
+		wifiInfo.networkInfoData.networkStatus = STATUS_SET_DHCP;
+		len = rt_sprintf((char *)cmd,"%s%s=%d,%d",WIFI_CMD_PREFIX,commandInfo[CMD_SET_DHCP].szCli,wifiInfo.mode,wifiInfo.dhcp);
 		break;
 	case CMD_QUERY_DHCP:
 		wifiInfo.responseLen = rt_strlen(commandInfo[CMD_GET_DHCP].szCli);
@@ -185,10 +202,8 @@ rt_err_t SendWifiCommand(wifiCommandID id)
 		len = rt_sprintf((char *)cmd,"%s%s",WIFI_CMD_PREFIX,commandInfo[CMD_QUERY_DHCP].szCli);
 		break;
 	case CMD_SET_LOCAL_INFO:
-		{
-			wifiInfo.networkInfoData.networkStatus = STATUS_SET_LOCAL_INFO;
-			len = rt_sprintf((char *)cmd,"%s%s=\"%s\",\"%s\",\"%s\"",WIFI_CMD_PREFIX,commandInfo[CMD_SET_LOCAL_INFO].szCli,GetLocalIP(),GetGatewayIP(),GetSubnetMask());
-		}
+		wifiInfo.networkInfoData.networkStatus = STATUS_SET_LOCAL_INFO;
+		len = rt_sprintf((char *)cmd,"%s%s=\"%s\",\"%s\",\"%s\"",WIFI_CMD_PREFIX,commandInfo[CMD_SET_LOCAL_INFO].szCli,GetLocalIP(),GetGatewayIP(),GetSubnetMask());
 		break;
 	case CMD_QUERY_LOCAL_INFO:
 		wifiInfo.responseLen = rt_strlen(commandInfo[CMD_GET_LOCAL_INFO].szCli);
@@ -196,19 +211,10 @@ rt_err_t SendWifiCommand(wifiCommandID id)
 		len = rt_sprintf((char *)cmd,"%s%s",WIFI_CMD_PREFIX,commandInfo[CMD_QUERY_LOCAL_INFO].szCli);
 		break;
 	case CMD_CONNECT_AP:
-		{
-			rt_kprintf("Try to Connect AP \r\n");
-			wifiInfo.responseLen = rt_strlen(commandInfo[CMD_GET_AP_INFO].szCli);
-			wifiInfo.networkInfoData.networkStatus = STATUS_CONNECT_WIFI;
-			rt_uint8_t ssid[64];
-			rt_uint8_t password[64];
-			rt_memcpy(ssid,GetApSSID(),WIFI_MAX_LEN);
-			rt_uint8_t *wifiSSID = MakeWifiFormat(ssid);
-			rt_memcpy(password,GetApPassword(),WIFI_MAX_LEN);
-			rt_uint8_t *wifiPassword = MakeWifiFormat(password);
-
-			len = rt_sprintf((char *)cmd,"%s%s=\"%s\",\"%s\"",WIFI_CMD_PREFIX,commandInfo[CMD_CONNECT_AP].szCli,wifiSSID,wifiPassword);
-		}
+		rt_kprintf("Try to Connect AP \r\n");
+		wifiInfo.responseLen = rt_strlen(commandInfo[CMD_GET_AP_INFO].szCli);
+		wifiInfo.networkInfoData.networkStatus = STATUS_CONNECT_WIFI;
+		len = rt_sprintf((char *)cmd,"%s%s=\"%s\",\"%s\"",WIFI_CMD_PREFIX,commandInfo[CMD_CONNECT_AP].szCli,wifiInfo.ssid,wifiInfo.password);
 		break;
 	case CMD_QUERY_AP_INFO:
 		wifiInfo.networkInfoData.networkStatus = STATUS_QUERY_AP_INFO;
@@ -218,18 +224,9 @@ rt_err_t SendWifiCommand(wifiCommandID id)
 		len = rt_sprintf((char *)cmd,"%s%s",WIFI_CMD_PREFIX,commandInfo[CMD_DISCONNECT_AP].szCli);
 		break;
 	case CMD_TCP_CONNECT:
-		{
-			wifiInfo.networkInfoData.networkStatus = STATUS_TCP_CONNECT;
-			rt_uint8_t remoteIp[16];
-			rt_uint16_t remotePort;
-			rt_memcpy(remoteIp,GetTcpIp(),sizeof(remoteIp));
-			rt_kprintf("remoteIp: %s\r\n",remoteIp);
-			remotePort = GetTcpPort();
-			rt_kprintf("remote Port: %d\r\n",remotePort);
-
-			// "TCP","remote IP","remote Port"
-			len = rt_sprintf((char *)cmd,"%s%s=\"%s\",\"%s\",%d",WIFI_CMD_PREFIX,commandInfo[CMD_TCP_CONNECT].szCli,TCP,remoteIp,remotePort);
-		}
+		wifiInfo.networkInfoData.networkStatus = STATUS_TCP_CONNECT;
+		// "TCP","remote IP","remote Port"
+		len = rt_sprintf((char *)cmd,"%s%s=\"%s\",\"%s\",%d",WIFI_CMD_PREFIX,commandInfo[CMD_TCP_CONNECT].szCli,TCP,wifiInfo.remoteIp,wifiInfo.remotePort);
 		break;
 	case CMD_QUERY_MAC_INFO:
 		wifiInfo.networkInfoData.networkStatus = STATUS_QUERY_MAC_INFO;
@@ -241,43 +238,51 @@ rt_err_t SendWifiCommand(wifiCommandID id)
 		wifiInfo.responseLen = rt_strlen(commandInfo[CMD_SET_MAC_INFO].szCli);
 		len = rt_sprintf((char *)cmd,"%s%s=\"%s\"",WIFI_CMD_PREFIX,commandInfo[CMD_SET_MAC_INFO].szCli,GetMacAddress());
 		break;
+	case CMD_TCP_DISCONNECT: //Tcp disconnection
+		wifiInfo.networkInfoData.networkStatus = STATUS_TCP_DISCONNECT;
+		wifiInfo.responseLen = rt_strlen(commandInfo[CMD_TCP_DISCONNECT].szCli);
+		len = rt_sprintf((char *)cmd,"%s%s",WIFI_CMD_PREFIX,commandInfo[CMD_TCP_DISCONNECT].szCli);
+		break;
 	default:
 		rt_kprintf("Invalid Id\r\n");
 		break;
 	}
 	cmd[len++] = CR;
 	cmd[len++] = LF;
-	cmd[len] = '\0';
 	rt_memcpy(wifiInfo.txBuf,cmd,len);
+
+	wifiInfo.txLen = len;//set length of transmitting
 
 	return rt_event_send(wifiInfo.rx_event, SMSG_TX_DATA);
 }
 
 rt_err_t TcpSetDataLength(rt_uint16_t length)
 {
-	rt_thread_delay(500);
+	wifiInfo.networkInfoData.networkStatus = STATUS_SET_SEND_DATA_LENGTH;
 	rt_uint8_t cmd[CMD_MAX_LEN];
 	rt_uint8_t len = 0;
-	rt_kprintf("Set Data Length \r\n");
+	rt_kprintf("Set Data Length: %d \r\n", length);
 	len = rt_sprintf((char *)cmd,"%s%s=%d",WIFI_CMD_PREFIX,commandInfo[CMD_SET_SEND_DATA_LENGTH].szCli,length);
-	wifiInfo.networkInfoData.networkStatus = STATUS_READY_TO_SEND_DATA;
 
 	cmd[len++] = CR;
 	cmd[len++] = LF;
+
+	wifiInfo.txLen = len;
+
 	rt_memcpy(wifiInfo.txBuf,cmd,len);
 
 	return rt_event_send(wifiInfo.rx_event, SMSG_TX_DATA);
 }
 
-rt_err_t TcpSendData(rt_uint8_t *pData)
+rt_err_t TcpSendData(rt_uint8_t *pData, rt_uint16_t length)
 {
-	rt_thread_delay(500);
-	rt_uint8_t cmd[CMD_MAX_LEN];
-	rt_uint8_t len = 0;
-	len = rt_sprintf((char *)cmd,"%s",pData);
+	rt_kprintf("Start Send Data\r\n");
+	rt_timer_start(wifiInfo.sendTimeoutTimer);
+	rt_memcpy(wifiInfo.txBuf,pData,length);
+	wifiInfo.txBuf[length++] = LF;
 	wifiInfo.networkInfoData.networkStatus = STATUS_SEND_DATA;
 
-	rt_memcpy(wifiInfo.txBuf,cmd,len);
+	wifiInfo.txLen = length;
 
 	return rt_event_send(wifiInfo.rx_event, SMSG_TX_DATA);
 }
@@ -321,9 +326,14 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 		rt_uint8_t *begin=RT_NULL, *end=p_base, *last=(p_base+rx_size);
 
 		do {
-			if( (('+' == *end) || ('O' == *end) || ('E' == *end) || ('S' == *end)) && (RT_NULL == begin))
+			if( (('+' == *end) || ('O' == *end) || ('E' == *end) || ('S' == *end) || ( '>' == *end)) && (RT_NULL == begin))
 			{
 				begin = end;
+			}
+			else if('>' == *begin && CR == (*end) && (STATUS_SET_SEND_DATA_LENGTH ==  wifiInfo.networkInfoData.networkStatus) )
+			{  //treat the response of set sending length
+				pNetworkInfoData->response = RESPONSE_WIFI_OK;
+				wifiInfo.networkInfoData.networkStatus = STATUS_READY_TO_SEND_DATA;
 			}
 			else if( RT_NULL != begin && LF ==  *(end) && CR == *(end-1))
 			{
@@ -344,16 +354,30 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 					pNetworkInfoData->response = RESPONSE_WIFI_OK;
 					wifiInfo.networkInfoData.networkStatus = STATUS_SEND_DATA;
 				}
+				else if(0 == rt_strncmp(SEND_DATA_FAIL,(char *)begin,rt_strlen(SEND_DATA_FAIL)))
+				{
+					pNetworkInfoData->response = RESPONSE_WIFI_FAIL;
+				}
 				else if( '+' == *begin++)// skip '+'
 				{
 					rt_uint8_t id = CMD_MAX;
 					rt_uint8_t szCmd[CMD_MAX_LEN];
 					rt_uint8_t len = (rt_size_t)(end-begin);
+					rt_uint8_t keepResponseLen  = wifiInfo.responseLen;
 
 					rt_memcpy(szCmd,begin,len);
 
 					while(id--)
 					{
+                        //treat the wifi module response
+						if(CMD_RECEIVE_DATA == id)
+						{
+							wifiInfo.responseLen = 3;
+						}
+						else
+						{
+							wifiInfo.responseLen = keepResponseLen;
+						}
 						if( 0 == rt_strncmp((char *)szCmd,(char *)commandInfo[id].szCli,wifiInfo.responseLen))	break;
 					}
 
@@ -375,7 +399,6 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 						case CMD_GET_MODE:
 							wifiInfo.networkInfoData.networkStatus = STATUS_GET_WIFI_MODE;
 							pNetworkInfoData->data[0]=value[0];
-							rt_kprintf("%s", wifiModeInfo[(value[0]-'0')].Comment);
 								break;
 						case CMD_GET_DHCP:
 							wifiInfo.networkInfoData.networkStatus = STATUS_GET_DHCP_INFO;
@@ -383,23 +406,20 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 							rt_uint8_t result = 0x01 & (atoi((char *)value)>>1);
 							pNetworkInfoData->data[DHCP_MODE_INFO] = result;
 							pNetworkInfoData->data[DHCP_COMPARE_RESULT] = (result == GetDhcpMode());
-							rt_kprintf("%s", dhchInfo[result].Comment);
 							break;
 							case CMD_GET_AP_INFO:
 								rt_memcpy(&pNetworkInfoData->data,value,rt_strlen((char *)pNetworkInfoData->data));
 								switch(wifiInfo.networkInfoData.networkStatus)
 								{
 								case STATUS_CONNECT_WIFI:
-								rt_kprintf("%s", wifiErrorInfo[(value[0]-'0')].Comment);
 									break;
 								case STATUS_QUERY_AP_INFO:
-									rt_kprintf("AP Info: %s",value);
 								pNetworkInfoData->data[DHCP_MODE_INFO] =  GetDhcpMode();
+								wifiInfo.networkInfoData.networkStatus = STATUS_GET_AP_INFO;
 									break;
 								default:
 									break;
 								}
-								wifiInfo.networkInfoData.networkStatus = STATUS_GET_AP_INFO;
 								break;
 						case CMD_GET_LOCAL_INFO:
 							{
@@ -427,8 +447,18 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 							break;
 						case CMD_GET_MAC_INFO:
 							rt_memcpy(&pNetworkInfoData->data,value,rt_strlen((char *)pNetworkInfoData->data));
-							rt_kprintf("Mac Address: %s\r\n",value);
 							wifiInfo.networkInfoData.networkStatus = STATUS_GET_MAC_INFO;
+							break;
+						case CMD_RECEIVE_DATA: //treat the response of server
+							if(0 == rt_strncmp((char *)value,WIFI_OK,rt_strlen(WIFI_OK)))
+							{
+								pNetworkInfoData->response = RESPONSE_WIFI_OK;
+								wifiInfo.networkInfoData.networkStatus = STATUS_RECEIVE_DATA;
+							}
+							else if(0 == rt_strncmp((char *)value,"ER",rt_strlen("ER")))
+							{
+								pNetworkInfoData->response = RESPONSE_WIFI_ERROR;
+							}
 							break;
 						default:
 							break;
@@ -436,7 +466,6 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 					}
 				}
 				consumed = (rt_size_t)(end-p_base);
-				rt_timer_stop(wifiInfo.wifiTimeoutTimer);
 			}
 		} while(++end <= last);
 	}
@@ -458,7 +487,7 @@ void WifiRxThread(void *params)
 	err = rt_device_control(p_handle->uport, RT_DEVICE_CTRL_CONFIG, (void *)&config);
 	RT_ASSERT(err == RT_EOK);
 
-	err = rt_device_open(p_handle->uport, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_RX);
+	err = rt_device_open(p_handle->uport, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX);//uart tx interrupt
 	RT_ASSERT(err == RT_EOK);
 
 	err = rt_device_set_rx_indicate(p_handle->uport, WifiRxIndicate);
@@ -475,7 +504,6 @@ void WifiRxThread(void *params)
 				if(WIFI_RX_BUFF <= uRemain)
 				{ // buffer clear
 					uRemain = 0;
-					rt_memset(&p_handle->rxBuf,'\0',WIFI_RX_BUFF);
 				}
 
 				do {
@@ -493,35 +521,31 @@ void WifiRxThread(void *params)
 
 				if(RESPONSE_WIFI_RESPONSE_MAX > p_handle->networkInfoData.response)
 				{
-					rt_thread_delay(200);
 					switch(p_handle->networkInfoData.response)
 					{
 					case RESPONSE_WIFI_OK:
 						p_handle->mqData.messge = SMSG_WIFI_OK;
-						rt_memcpy(p_handle->mqData.data,&p_handle->networkInfoData,p_handle->mqData.size=sizeof(p_handle->networkInfoData.data));
-						NetworkMangerSendMessage(&p_handle->mqData);
 						break;
 					case RESPONSE_WIFI_ERROR:
 						p_handle->mqData.messge = SMSG_WIFI_ERROR;
-						rt_memcpy(p_handle->mqData.data,&p_handle->networkInfoData,p_handle->mqData.size=sizeof(p_handle->networkInfoData.data));
-						NetworkMangerSendMessage(&p_handle->mqData);
 						break;
 					case RESPONSE_WIFI_FAIL:
 						p_handle->mqData.messge = SMSG_WIFI_FAIL;
-						rt_memcpy(p_handle->mqData.data,&p_handle->networkInfoData,p_handle->mqData.size=sizeof(p_handle->networkInfoData.data));
-						NetworkMangerSendMessage(&p_handle->mqData);
 						break;
 					default:
 						break;
 					}
+					rt_timer_stop(p_handle->wifiTimeoutTimer);
 					p_handle->networkInfoData.response = RESPONSE_WIFI_RESPONSE_MAX;
+					rt_memcpy(p_handle->mqData.data,&p_handle->networkInfoData,p_handle->mqData.size=sizeof(p_handle->networkInfoData.data));
+					NetworkMangerSendMessage(&p_handle->mqData);
 				}
 			}
 			else if(SMSG_TX_DATA & events)
 			{
-				rt_timer_stop(p_handle->wifiTimeoutTimer);
-				WifiTxData(p_handle->txBuf,rt_strlen((char *)p_handle->txBuf));
+				WifiTxData(p_handle->txBuf,p_handle->txLen);
 				rt_timer_start(p_handle->wifiTimeoutTimer);
+				p_handle->txLen = 0;
 			}
 		}
 	}
@@ -533,6 +557,20 @@ void InitWifInformation(void)
 	wifiInfo.networkInfoData.networkStatus = STATUS_NONE;
 
 	wifiInfo.responseLen = 0;
+	wifiInfo.txLen = 0;
+
+	wifiInfo.mode = 1; //Station
+	wifiInfo.dhcp = GetDhcpMode();
+
+	rt_uint8_t ssid[64];
+	rt_uint8_t password[64];
+	rt_memcpy(ssid,GetApSSID(),WIFI_MAX_LEN);
+	rt_memcpy(wifiInfo.ssid,MakeWifiFormat(ssid),WIFI_MAX_LEN);
+	rt_memcpy(password,GetApPassword(),WIFI_MAX_LEN);
+	rt_memcpy(wifiInfo.password,MakeWifiFormat(password),WIFI_MAX_LEN);
+
+	rt_memcpy(wifiInfo.remoteIp,GetTcpIp(),sizeof(wifiInfo.remoteIp));
+	wifiInfo.remotePort = GetTcpPort();
 
 	wifiInfo.uport = RT_NULL;
 	wifiInfo.rx_event = RT_NULL;
@@ -541,7 +579,10 @@ void InitWifInformation(void)
 
 void DeInitWifi(void)
 {
+	rt_kprintf("DeInitialize Wi-Fi Module.\r\n");
 
+	rt_event_delete(wifiInfo.rx_event);
+	rt_device_close(wifiInfo.uport);
 }
 
 rt_bool_t InitWifi(void)
@@ -559,6 +600,9 @@ rt_bool_t InitWifi(void)
 
 	h_data->wifiTimeoutTimer = rt_timer_create("wifiTimeoutTimer", WifiTimeoutTimer, (void *)h_data, rt_tick_from_millisecond(WIFI_RESP_TIMEOUT_DELAY), RT_TIMER_FLAG_ONE_SHOT);
 	RT_ASSERT(RT_NULL != h_data->wifiTimeoutTimer);
+
+	h_data->sendTimeoutTimer = rt_timer_create("sendTimeoutTimer", SendTimeoutTimer, (void *)h_data, rt_tick_from_millisecond(WIFI_SEND_TIMEOUT_DELAY), RT_TIMER_FLAG_ONE_SHOT);
+	RT_ASSERT(RT_NULL != h_data->sendTimeoutTimer);
 
 	tidRx = rt_thread_create("WifiRxThread", WifiRxThread, (void *)h_data, WIFI_RX_STACK_SZIE, RT_MAIN_THREAD_PRIORITY, 20);
 	RT_ASSERT(RT_NULL != tidRx);

@@ -8,9 +8,8 @@
 #define SMSG_TX_DATA					0x00000001 // uart send data
 #define SMSG_RX_DATA					0x00000002 // uart receive data
 #define SMSG_REQ_DATA					0x00000003 // request data
-#define SMSG_RESP_DATA					0x00000004 // response data
-#define SMSG_INC_DATA					0x00000005 // indicate
-#define SMSG_REP_DATA					0x00000006 // report data (sensor to sensor manager)
+#define SMSG_INC_DATA					0x00000004 // indicate
+#define SMSG_REP_DATA					0x00000005 // report data (sensor to sensor manager)
 
 #define DEFAULT_MQ_SIZE					5U
 #define APPLICATION_MQ_SIZE				DEFAULT_MQ_SIZE

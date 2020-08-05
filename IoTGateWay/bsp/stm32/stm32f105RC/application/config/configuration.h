@@ -31,6 +31,7 @@ typedef struct _config_tag {
 	rt_uint8_t	manufacture;
 
 	NetworkdCofig	networkdCofig;
+	rt_uint8_t	device[6]; //Device Info
 } Config;
 #pragma pack(pop)
 
@@ -57,6 +58,8 @@ rt_uint8_t *GetMacAddress(void);
 rt_bool_t SetMacAddress(rt_uint8_t *pData, rt_size_t dataSize);
 rt_uint8_t GetManufactureMode(void);
 rt_bool_t SetManufacture(rt_uint8_t on);
+rt_uint8_t *GetDeviceInfo(void);
+void SetDeviceInfo(rt_uint8_t *pData, rt_size_t dataSize);
 void ShowConfig(void);
 rt_bool_t InitConfiguration(void);
 
