@@ -24,7 +24,7 @@ static CLIINFO s_cliInfo[] = {
 	{CLI_SSNM, "SSNM", "[Set SubnetMask]\n"},			{CLI_SGWY, "SGWY", "[Set Gateway IP]\n"},
 	{CLI_SDNS, "SDNS", "[Set DNS Server]\n"},			{CLI_STCP, "STCP", "[Set Destination IP/Port]\n"},
 	{CLI_DHCP, "DHCP", "[Set DHCP Mode]\n"},			{CLI_SSID, "SSID", "[Set Target AP SSID/Password]\n"},
-	{CLI_SMAC, "SMAC", "[Set MacAddress]\n"}
+	{CLI_SMAC, "SMAC", "[Set MacAddress]\n"},           {CLI_SDEV, "SDEV", "[Set Device Type and Number]"}
 };
 
 typedef struct usbconsole_data_tag {
@@ -70,6 +70,9 @@ void OnShowHelp(void)
 	rt_kprintf("* Set Mac Address ---------------- AT+SMAC=<value> *\r\n");
 	rt_kprintf("*  value => '<xx:xx:xx:xx:xx:xx>'                  *\r\n");
 	rt_kprintf("*           'None':Current Mac Address             *\r\n");
+	rt_kprintf("* Set Devie Information----------- AT+SDEV=<value> *\r\n");
+	rt_kprintf("*  value => '<xxxxxx>'                             *\r\n");
+	rt_kprintf("*           'None':Current Device Information      *\r\n");
 	rt_kprintf("* Set Manufacture Mode ------------AT+SMFR=<value> *\r\n");
 	rt_kprintf("*  value => 1 or 0                                 *\r\n");
 	rt_kprintf("****************************************************\r\n");
@@ -209,6 +212,18 @@ static rt_bool_t OnSetMacAddress(rt_uint8_t *pData, rt_size_t dataSize)
 
 	return retVal;
 }
+//Set Device Info
+static void OnSetDeviceInfo(rt_uint8_t *pData, rt_size_t dataSize)
+{
+	if( 0 < dataSize)
+	{
+		SetDeviceInfo(pData,dataSize);
+	}
+	else
+	{
+		rt_kprintf("Get Device Information: %s\r\n", GetDeviceInfo());
+	}
+}
 
 static rt_bool_t OnSetManufacture(rt_uint8_t *pData, rt_size_t dataSize)
 {
@@ -315,6 +330,9 @@ rt_size_t ParserCliCommand(rt_uint8_t *p_buff, rt_size_t rx_size)
 								break;
 							case CLI_SMAC:
 								OnSetMacAddress(begin,valLen);
+								break;
+							case CLI_SDEV: //Set Device Info
+								OnSetDeviceInfo(begin,valLen);
 								break;
 							default :
 								rt_kprintf("Unknown cli command.\r\n");

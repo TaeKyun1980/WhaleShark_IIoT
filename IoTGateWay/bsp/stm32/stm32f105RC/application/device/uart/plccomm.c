@@ -3,16 +3,48 @@
  *
  */
 #include <string.h>
+#include <stdlib.h>
 
 #include <rtthread.h>
-#ifdef RT_USING_FINSH
-#	include <finsh.h>
-#endif
+
 #include <common/smsgdef.h>
 #include <device/uart/plccomm.h>
 #include "application.h"
 #include <common/common.h>
 #include <config/appconfig.h>
+#include <config/configuration.h>
+#include <network/networkmanager.h>
+
+#define UART5_MUX_SEL	GET_PIN(B,4)
+#define PLC_DATA_LEN	41
+#define PLC_BUFF_SIZE	256
+#define PV				"PV" //PV
+#define TS				"TS" 
+#define TK				"TK" 
+#define DEV_TYPE_TS		0 //TS 
+#define DEV_TYPE_TK		1 //TK
+#define PV_LEN			2
+#define TB_VALUE_LEN	2	//2 bytes value len
+#define FB_VALUE_LEN	4	//4 bytes value len
+
+//Sensor Code
+#define SensorCode_1	0x0001
+#define SensorCode_2	0x0002
+#define SensorCode_3	0x0003
+#define SensorCode_4	0x0004
+#define SensorCode_5	0x0005
+#define SensorCode_6	0x0006
+#define SensorCode_7	0x0007
+#define SensorCode_8	0x0008
+#define SensorCode_9	0x0009
+#define SensorCode_10	0x000A
+#define SensorCode_11	0x000B
+#define SensorCode_12	0x000C
+#define SensorCode_13	0x000D
+#define SensorCode_14	0x000E
+#define SensorCode_15	0x000F
+#define SensorCode_16	0x0010
+#define SensorCode_17	0x0011
 
 typedef struct dustCommInfo_tag {
 	rt_mq_t plcMq;
@@ -21,18 +53,29 @@ typedef struct dustCommInfo_tag {
 	rt_device_t uport;
 	rt_event_t  rx_event;
 
+	rt_uint8_t tcpOn; //tcp connection flag
+	rt_uint8_t devInfo[4];
+	rt_uint8_t devType; //0: TS, 1: TK
 	PlDataInfo plDataInfo;
-	rt_uint8_t txBuf[RT_SERIAL_RB_BUFSZ];
-	rt_uint8_t rxBuf[RT_SERIAL_RB_BUFSZ];
+	rt_uint8_t txBuf[PLC_BUFF_SIZE];
+	rt_uint8_t rxBuf[PLC_BUFF_SIZE];
 } PlcCommInfo;
 
 static PlcCommInfo plcCommInfo;
+static rt_uint8_t findStart = DISABLE;
+static rt_uint16_t sensorCodeCount = 1;
 
-void PlcCommSendMessage(MqData_t *pMqData)
+//Get Tcp flag
+rt_uint8_t GetTcpStatus(void)
 {
-	if(-RT_EFULL == rt_mq_send(plcCommInfo.plcMq, (void *)&pMqData, sizeof(void*)))
+	return plcCommInfo.tcpOn;
+}
+//Set Tcp flag
+void SetTcpStatus(rt_uint8_t tcpOn)
+{
+	if(tcpOn != plcCommInfo.tcpOn)
 	{
-		rt_kprintf("DustComm Queue full - throw away\r\n");
+		plcCommInfo.tcpOn = tcpOn;
 	}
 }
 
@@ -40,70 +83,232 @@ static rt_err_t dustcomm_rx_ind(rt_device_t dev, rt_size_t size)
 {
     return rt_event_send(plcCommInfo.rx_event, SMSG_RX_DATA);
 }
-
-static rt_size_t plccomm_tx_data(rt_uint8_t *data, rt_size_t tx_size)
+//Make Packet following Protocol
+rt_size_t MakeSensorValue(rt_uint16_t sensorCode, rt_uint8_t *pData, rt_size_t position)
 {
-	rt_int32_t remain = tx_size;
-	rt_size_t written = 0;
-
-	if(RT_NULL != data && 0 < tx_size)
-	{
-		do {
-			if(0 < (written=rt_device_write(plcCommInfo.uport, 0, (data+written), remain)))
-			{
-				remain -= written;
-			}
-		} while(0 < remain);
-	}
-
-	return written;
-}
-
-static rt_size_t MakePayloadData(rt_uint8_t pkType, rt_uint8_t opCode, rt_uint8_t *plData, rt_uint16_t plSize)
-{
-	rt_kprintf("Make payload data. type:0x%02x, opcode:0x%02x, size:%u\r\n", pkType, opCode, plSize);
-	rt_uint8_t *pos = plcCommInfo.txBuf;
-	rt_uint8_t plBuf[128], *plPos=plBuf;
-	rt_uint16_t u16Val;
-	rt_size_t size = 0;
+	rt_uint32_t time = 0;
+	rt_uint16_t SensorCode = 0;
+	rt_uint16_t innerPress = 0;
+	rt_uint16_t outerPress = 0;
+	rt_uint8_t length = sizeof(time);
+	rt_uint8_t 	flaotingPoint = 0;
+	rt_uint8_t 	len = sizeof(sensorCode);
+	rt_uint8_t *pos =  (plcCommInfo.txBuf+position);
 
 	*pos++ = STX;
-	pos += sizeof(rt_uint16_t); // skip length field
 
-	*plPos++ = pkType;
-	*plPos++ = opCode;
-	if(0 < plSize && RT_NULL != plData)
+	//Time
+	time = HTONL(time);
+	rt_memcpy(pos,&time,length);
+	pos += length;
+
+	length = sizeof(plcCommInfo.devInfo);
+	rt_memcpy(pos,plcCommInfo.devInfo,length);
+	pos += length;
+
+	if(DEV_TYPE_TS == plcCommInfo.devType)//TS
 	{
-		rt_memcpy(plPos, plData, plSize);
-		plPos += plSize;
+		innerPress = SensorCode_7;
+		outerPress = SensorCode_8;
+	}
+	else//TK
+	{
+		innerPress = SensorCode_13;
+		outerPress = SensorCode_14;
 	}
 
-	if(0 < (u16Val=base16_encode(plBuf, (rt_uint16_t)(plPos-plBuf), pos)))
+	//Sensor code, PV
+	SensorCode = HTONS(sensorCode);
+	rt_memcpy(pos, &SensorCode, len);
+	pos += len;
+	rt_memcpy(pos, PV, PV_LEN);
+	pos += PV_LEN;
+
+	//Sensor Value
+	if((innerPress == sensorCode) || (outerPress == sensorCode))
 	{
-		rt_uint16_t len = u16Val;
-		rt_uint8_t crc;
+		rt_uint32_t u32Val = 0;
+		rt_uint8_t length = sizeof(u32Val);
 
-		pos = &plcCommInfo.txBuf[1]; // move length field
+		rt_memcpy(&u32Val,pData,length);
+		u32Val = HTONL(u32Val);
+		rt_memcpy(pos,&u32Val,length);
+		pos += length;
+		flaotingPoint = 3;
+		*pos++ = flaotingPoint;
 
-		u16Val = HTONS(u16Val);
-		rt_memcpy(pos, &u16Val, sizeof(u16Val));
-		pos += sizeof(u16Val);
-
-		crc = chechsum_xor(pos, len);
-		pos += len;
-
-		*pos++ = crc;
-		*pos++ = ETX;
-
-		size = (pos-plcCommInfo.txBuf);
-		BufferShow(plcCommInfo.txBuf, size);
 	}
 	else
 	{
-		rt_kprintf("Base16 encoding failed.\r\n");
+		rt_uint16_t u16Val = 0;
+		rt_uint8_t 	length = sizeof(u16Val);
+
+		rt_memcpy(&u16Val,pData,length);
+		u16Val = HTONS(u16Val);
+		rt_memcpy(pos,&u16Val,length);
+		pos += length;
+		flaotingPoint = 1;
+		*pos++ = flaotingPoint;
 	}
 
-	return size;
+	*pos++ = ETX;
+
+	return (pos-plcCommInfo.txBuf-position);
+}
+//Check Sensorcode and make packet
+static rt_size_t MakeSensorPayloadData(rt_uint8_t *pData, rt_uint16_t length)
+{
+	rt_size_t size = 0;
+	rt_uint8_t 	*begin = pData;
+	rt_uint8_t 	*pos = plcCommInfo.txBuf;
+	rt_uint8_t *p_base = pos;
+
+	begin++;//Skip STX of PLC Data
+	//sensor 1
+	if( SensorCode_1 ==  sensorCodeCount)
+	{
+		size += MakeSensorValue(SensorCode_1, begin, size);
+	}
+	begin += TB_VALUE_LEN;
+
+	//sensor 2
+	if( SensorCode_2 ==  sensorCodeCount)
+	{
+		size += MakeSensorValue(SensorCode_2, begin, size);
+	}
+	begin += TB_VALUE_LEN;
+
+	//sensor 3
+	if( SensorCode_3 ==  sensorCodeCount)
+	{
+		size += MakeSensorValue(SensorCode_3, begin, size);
+	}
+	begin += TB_VALUE_LEN;
+
+	//sensor 4
+	if( SensorCode_4 ==  sensorCodeCount)
+	{
+		size += MakeSensorValue(SensorCode_4, begin, size);
+	}
+	begin += TB_VALUE_LEN;
+
+	//sensor 5
+	if( SensorCode_5 ==  sensorCodeCount)
+	{
+		size += MakeSensorValue(SensorCode_5, begin, size);
+	}
+	begin += TB_VALUE_LEN;
+
+	//sensor 6
+	if( SensorCode_6 ==  sensorCodeCount)
+	{
+		size += MakeSensorValue(SensorCode_6, begin, size);
+	}
+	begin += TB_VALUE_LEN;
+
+	//if TS
+	if(DEV_TYPE_TS == plcCommInfo.devType)
+	{
+		begin += TB_VALUE_LEN;
+		begin += TB_VALUE_LEN;
+		begin += TB_VALUE_LEN;
+		begin += TB_VALUE_LEN;
+		begin += TB_VALUE_LEN;
+		begin += TB_VALUE_LEN;
+
+		//sensor 7 //inner press
+		if( SensorCode_7 ==  sensorCodeCount)
+		{
+			size += MakeSensorValue(SensorCode_7, begin, size);
+		}
+		begin += FB_VALUE_LEN;
+
+		//sensor 8 //outer press
+		if( SensorCode_8 ==  sensorCodeCount)
+		{
+			size += MakeSensorValue(SensorCode_8, begin, size);
+		}
+		begin += FB_VALUE_LEN;
+
+		//sensor 9
+		if( SensorCode_9 ==  sensorCodeCount)
+		{
+			size += MakeSensorValue(SensorCode_9, begin, size);
+		}
+		begin += TB_VALUE_LEN;
+		begin += TB_VALUE_LEN;
+
+		//sensor 10
+		if( SensorCode_10 ==  sensorCodeCount)
+		{
+			size += MakeSensorValue(SensorCode_10, begin, size);
+		}
+	}
+	else// TK
+	{
+		//sensor 7
+		size += MakeSensorValue(SensorCode_7, begin, size);
+		begin += TB_VALUE_LEN;
+
+		//sensor 8
+		size += MakeSensorValue(SensorCode_8, begin, size);
+		begin += TB_VALUE_LEN;
+
+		//sensor 9
+		size += MakeSensorValue(SensorCode_9, begin, size);
+		begin += TB_VALUE_LEN;
+
+		//sensor 10
+		size += MakeSensorValue(SensorCode_10, begin, size);
+		begin += TB_VALUE_LEN;
+
+		//sensor 11
+		size += MakeSensorValue(SensorCode_11, begin, size);
+		begin += TB_VALUE_LEN;
+
+		//sensor 12
+		size += MakeSensorValue(SensorCode_12, begin, size);
+		begin += TB_VALUE_LEN;
+
+		//sensor 13 //inner press
+		size += MakeSensorValue(SensorCode_13, begin, size);
+		begin += FB_VALUE_LEN;
+
+		//sensor 14 //outer press
+		size += MakeSensorValue(SensorCode_14, begin, size);
+		begin += FB_VALUE_LEN;
+
+		//sensor 15
+		size += MakeSensorValue(SensorCode_15, begin, size);
+		begin += TB_VALUE_LEN;
+
+		//sensor 16
+		size += MakeSensorValue(SensorCode_16, begin, size);
+		begin += TB_VALUE_LEN;
+
+		//sensor 17
+		size += MakeSensorValue(SensorCode_17, begin, size);
+	}
+
+	pos = p_base+size;
+
+	return (pos-plcCommInfo.txBuf);
+}
+
+rt_uint8_t CalSum(rt_uint8_t *pData, rt_uint8_t len)
+{
+	rt_uint8_t result = 0;
+	rt_uint8_t buf[41] = {0,};
+	rt_uint8_t count = 0;
+
+	rt_memcpy(buf,pData,len);
+
+	for(count = 0 ; count < len ; count++)
+	{
+		result += buf[count];
+	}
+
+	return result;
 }
 
 static rt_size_t ParserReceiveData(rt_uint8_t *p_base, rt_size_t rx_size, PlDataInfo *plDataInfo)
@@ -115,59 +320,21 @@ static rt_size_t ParserReceiveData(rt_uint8_t *p_base, rt_size_t rx_size, PlData
 		rt_uint8_t *begin=p_base, *end=begin, *last=(p_base+rx_size);
 
 		do {
-			if(ETX == *end)
+			if( (STX == *end) && (findStart == DISABLE))
 			{
-				do {
-					if(STX == *begin)
-					{
-						rt_uint16_t u16Val, plLen;
-						rt_uint8_t *plPos, u8Val=sizeof(u16Val), crc;
-						PlData *plData = &plDataInfo->data;
-						rt_uint8_t decBuf[128];
-
-						begin++; /* skip STX */
-
-						// Get Payload length
-						rt_memcpy(&plLen, begin, u8Val);
-						plLen = NTOHS(plLen);
-						begin += u8Val;
-						plPos = begin; // save payload position
-						
-						u8Val = chechsum_xor(begin, plLen);
-						begin += plLen;
-						crc = *begin;
-						*begin = '\0'; // add null (must be)
-
-						if(u8Val != crc)
-						{ // check crc
-							rt_kprintf("CRC Failed.\r\n");
-						}
-						else if(0 == (u16Val=base16_decode(plPos, plLen, decBuf)))
-						{ // base16 decoding
-							rt_kprintf("Base16 Decoding Failed.\r\n");
-						}
-						else
-						{
-							// decoding payload
-							uint8_t *pl = decBuf;
-
-							// pakect type
-							plData->type = *pl++;
-							// operation code
-							plData->opCode = *pl++;
-							if(0 < (plData->size=(u16Val-2)))
-							{
-								rt_memcpy(plData->data, pl, plData->size);
-							}
-							plDataInfo->valid = ENABLE;
-						}
-						
-						begin = end;
-					}
-				} while(++begin < end);
+				findStart = ENABLE;
+				begin = end;
+			}
+			else if((findStart == ENABLE) && (PLC_DATA_LEN == (rt_size_t)(end-begin)))
+			{
+				findStart = DISABLE;
+				rt_uint8_t sum = *(begin+PLC_DATA_LEN-1);
+				if( sum == CalSum(begin,PLC_DATA_LEN-1))
+				{
+					plDataInfo->valid = ENABLE;
+				}
 			}
 		} while(++end < last);
-
 		consumed = (rt_size_t)(begin-p_base);
 	}
 
@@ -181,26 +348,35 @@ static void plccomm_rx_thread(void *params)
 	rt_size_t uRemain = 0;
 	rt_uint32_t events;
 
-    rt_err_t err = rt_device_open(p_handle->uport, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_RX);
+	rt_pin_write(UART5_MUX_SEL, PIN_LOW);
+
+	struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
+
+	config.baud_rate = BAUD_RATE_19200;
+	rt_err_t err = rt_device_control(p_handle->uport, RT_DEVICE_CTRL_CONFIG, (void *)&config);
+	RT_ASSERT(err == RT_EOK);
+
+    err = rt_device_open(p_handle->uport, RT_DEVICE_OFLAG_RDONLY | RT_DEVICE_FLAG_INT_RX);
 	RT_ASSERT(err == RT_EOK);
 
 	rt_device_set_rx_indicate(p_handle->uport, dustcomm_rx_ind);
 	while(1)
 	{	
 		if(RT_EOK == (err=rt_event_recv(p_handle->rx_event, SMSG_RX_DATA, (RT_EVENT_FLAG_OR|RT_EVENT_FLAG_CLEAR), RT_WAITING_FOREVER, &events))
-			&& (SMSG_RX_DATA & events))
+			&& (SMSG_RX_DATA & events) && (ENABLE == p_handle->tcpOn))
 		{
 			rt_size_t ulBytes;
 
-			do {
-				if(RT_SERIAL_RB_BUFSZ <= uRemain)
-				{
-					uRemain = 0;
-				}
+			if(PLC_BUFF_SIZE <= uRemain)
+			{
+				uRemain = 0;
+			}
 
-				if((ulBytes=rt_device_read(p_handle->uport, 0, (pBuf+uRemain), (RT_SERIAL_RB_BUFSZ-uRemain))) > 0)
+			do {
+				if((ulBytes=rt_device_read(p_handle->uport, 0, (pBuf+uRemain), (PLC_BUFF_SIZE-uRemain))) > 0)
 				{
 					rt_size_t consumed = ParserReceiveData(pBuf, (uRemain += ulBytes), &p_handle->plDataInfo);
+
 					if(consumed > 0 && ((uRemain -= consumed) > 0))
 					{
 						memmove(pBuf, pBuf+consumed, uRemain);
@@ -208,41 +384,28 @@ static void plccomm_rx_thread(void *params)
 				}
 			} while(0 < ulBytes);
 
+
 			if(ENABLE == p_handle->plDataInfo.valid)
 			{
-				PlData *plData = &p_handle->plDataInfo.data;
+				rt_uint8_t len = 0;
 
-				rt_kprintf("(DustComm)Receive PK(Type:0x%02x, OpCode:0x%02x)\r\n", plData->type, plData->opCode);
-				if(PK_TYPE_REQ == plData->type)
+				if( 0 < (len = MakeSensorPayloadData(p_handle->rxBuf,PLC_DATA_LEN)))
 				{
-					if(PK_OPCODE_KEEPALIVE == plData->opCode)
-					{
-						rt_size_t size = MakePayloadData(PK_TYPE_CFM, PK_OPCODE_KEEPALIVE, RT_NULL, 0);
+					SendData(p_handle->txBuf,len);
+				}
 
-						if(0 < size)
-						{
-							plccomm_tx_data(p_handle->txBuf, size);
-						}
-					}
-					else
-					{
-						p_handle->mqData.messge = SMSG_REQ_DATA;
-						rt_memcpy(p_handle->mqData.data, plData, p_handle->mqData.size=sizeof(PlData));
-						ApplicationSendMessage(&p_handle->mqData);
-					}
-				}
-				else
+				sensorCodeCount++;
+
+				if(DEV_TYPE_TS == plcCommInfo.devType && SensorCode_10 < sensorCodeCount)
 				{
-					switch(plData->type)
-					{
-					case PK_TYPE_CFM:
-						rt_kprintf("PK type confirmed.\r\n"); break;
-					case PK_TYPE_IND:
-						rt_kprintf("PK type indicate.\r\n"); break;
-					case PK_TYPE_RESP:
-						rt_kprintf("PK type response.\r\n"); break;
-					}
+					sensorCodeCount = 1;
 				}
+				else if(DEV_TYPE_TK == plcCommInfo.devType && SensorCode_17 < sensorCodeCount)
+				{
+					sensorCodeCount = 1;
+				}
+
+				rt_memset(p_handle->rxBuf,'\0',PLC_BUFF_SIZE);
 
 				p_handle->plDataInfo.valid = DISABLE;
 			}
@@ -250,80 +413,55 @@ static void plccomm_rx_thread(void *params)
 	}
 }
 
-static void plccomm_main_thread(void *params)
+void InitPlcCommInfo(rt_uint8_t *pData)
 {
-    PlcCommInfo *p_handle = (PlcCommInfo *)params;
-	MqData_t *pMqData = RT_NULL;
-
-	while(1)
-	{	
-		if(rt_mq_recv(p_handle->plcMq, &pMqData, sizeof(void *), RT_WAITING_FOREVER) == RT_EOK)
-		{
-			MqData_t mqData;
-			rt_size_t size;			
-			PlData plData;
-
-			rt_memcpy(&mqData, pMqData, sizeof(MqData_t));
-			switch(mqData.messge)
-			{
-			case SMSG_REQ_DATA:
-				rt_kprintf("(PlcComm)Request data.\r\n");
-				break;
-			case SMSG_RESP_DATA:
-			case SMSG_INC_DATA:
-				rt_memcpy(&plData, mqData.data, mqData.size);
-				if(SMSG_RESP_DATA == mqData.messge)
-				{
-				rt_kprintf("(PlcComm)Response data. PL(type:0x%02x, opcode:0x%02x)\r\n", plData.type, plData.opCode);
-				}
-				else
-				{
-					rt_kprintf("(PlcComm)Indicate data. PL(type:0x%02x, opcode:0x%02x)\r\n", plData.type, plData.opCode);
-				}
-
-				if(0 < (size=MakePayloadData(plData.type, plData.opCode, plData.data, plData.size)))
-				{
-					plccomm_tx_data(p_handle->txBuf, size);
-				}
-				break;
-			}
-		}
-	}
-}
-
-void InitPlcCommInfo(void)
-{
+	rt_uint16_t devNum = 0;
+	plcCommInfo.tcpOn = DISABLE;
 	plcCommInfo.plcMq = RT_NULL;
 
 	plcCommInfo.uport = RT_NULL;
 	plcCommInfo.rx_event = RT_NULL;
 
 	rt_memset(&plcCommInfo.plDataInfo, 0, sizeof(plcCommInfo.plDataInfo));
+
+	rt_memcpy(plcCommInfo.devInfo,pData,sizeof(devNum));
+	devNum = strtoul((char *)pData+2,0,10);
+	devNum = HTONS(devNum);
+	rt_memcpy(plcCommInfo.devInfo+2,&devNum,sizeof(devNum));
+
+	if(0 == rt_strncmp((char *)plcCommInfo.devInfo,TS,rt_strlen(TS)) )
+	{
+		plcCommInfo.devType = DEV_TYPE_TS; //TS
+	}
+	else
+	{
+		plcCommInfo.devType = DEV_TYPE_TK; //TK
+	}
+
 }	
 
 rt_bool_t InitPlcComm(void)
 {
 	rt_kprintf("Initialize PlcComm.\r\n");
     PlcCommInfo *h_data = &plcCommInfo;
-    rt_thread_t tid_main, tid_rx;
+    rt_thread_t tid_rx;
 
-    InitPlcCommInfo();
+    InitPlcCommInfo(GetDeviceInfo());
+
+    rt_pin_mode(UART5_MUX_SEL, PIN_MODE_OUTPUT);
 
 	h_data->plcMq = rt_mq_create("plc_mq", sizeof(MqData_t), PLCCOMM_MQ_SIZE, RT_IPC_FLAG_FIFO);
 	RT_ASSERT(RT_NULL != h_data->plcMq);
 
-    h_data->uport = rt_device_find(UART1_DEV_NAME);
+    h_data->uport = rt_device_find(UART5_DEV_NAME);
     RT_ASSERT(h_data->uport != RT_NULL);	
 
     h_data->rx_event = rt_event_create("plccomm_rx", RT_IPC_FLAG_FIFO);
     RT_ASSERT(h_data->rx_event != RT_NULL);
 
-    tid_main = rt_thread_create("plccomm_main_thread", plccomm_main_thread, (void *)h_data, PLCCOMMM_STACK_SIZE, RT_MAIN_THREAD_PRIORITY, 20);
-    RT_ASSERT(tid_main != RT_NULL);
-
     tid_rx = rt_thread_create("plccomm_rx_thread", plccomm_rx_thread, (void *)h_data, PLCCOMMM_STACK_SIZE, RT_MAIN_THREAD_PRIORITY, 20);
     RT_ASSERT(tid_rx != RT_NULL);
 
     /* thread start  */
-    return (RT_EOK == rt_thread_startup(tid_main) && RT_EOK == rt_thread_startup(tid_rx));
+    return (RT_EOK == rt_thread_startup(tid_rx));
 }

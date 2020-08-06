@@ -45,6 +45,8 @@ typedef enum
 typedef enum _WifiCommandID
 {
 	CMD_RESTART,
+	CDM_ECHO_OFF,
+	CMD_DISABLE_SLEEP_MODE,
 	CMD_SET_MODE,
 	CMD_QUERY_MODE,
 	CMD_GET_MODE,
@@ -63,6 +65,8 @@ typedef enum _WifiCommandID
 	CMD_QUERY_MAC_INFO,
 	CMD_GET_MAC_INFO,
 	CMD_SET_MAC_INFO,
+	CMD_RECEIVE_DATA,
+	CMD_TCP_DISCONNECT,
 
 	CMD_MAX
 } wifiCommandID;
@@ -73,14 +77,11 @@ typedef struct _WIFICOMMANDINFO{
 	char	szComment[64];
 } WIFICOMMANDINFO;
 
-typedef struct _DESCPRIPTION{
-	char	Comment[64];
-}DESCPRIPTION;
-
+void DeInitWifi(void);
 rt_bool_t InitWifi(void);
 rt_err_t SendWifiCommand(wifiCommandID id);
 void ConnectWifi(void);
 rt_err_t TcpSetDataLength(rt_uint16_t length);
-rt_err_t TcpSendData(rt_uint8_t *pData);
+rt_err_t TcpSendData(rt_uint8_t *pData, rt_uint16_t length);
 
 #endif /* NETWORK_WIFI_WIFI_H_ */

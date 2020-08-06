@@ -204,6 +204,25 @@ rt_bool_t SetMacAddress(rt_uint8_t *pData, rt_size_t dataSize)
 	return retVal;
 }
 
+//Save the Device Info
+rt_uint8_t *GetDeviceInfo(void)
+{
+	return configInfo.cfg.device;
+}
+
+void SetDeviceInfo(rt_uint8_t *pData, rt_size_t dataSize)
+{
+	Config *pCfg = &configInfo.cfg;
+
+	if(0 != rt_strncmp((char *)pCfg->device, (char *)pData, dataSize))
+	{
+		rt_memset(pCfg->device,0,dataSize);
+		rt_memcpy(pCfg->device,pData,dataSize);
+		rt_kprintf("Set Device Info: %s\r\n", pCfg->device);
+		FlashWrite((rt_uint8_t *)pCfg, sizeof(Config));
+	}
+}
+
 rt_uint8_t GetManufactureMode(void)
 {
 	return configInfo.cfg.manufacture;
@@ -238,6 +257,7 @@ void ShowConfig(void)
 	rt_kprintf(" AP Information SSID/Password.(%s/%s)\r\n", configInfo.cfg.networkdCofig.apSSID, configInfo.cfg.networkdCofig.apPassword);
 	rt_kprintf(" Mac Address : %s\r\n",configInfo.cfg.networkdCofig.macAddress);
 	rt_kprintf(" DHCP Mode: %s\r\n",(ENABLE == GetDhcpMode())?"On":"Off" );
+	rt_kprintf(" Device Info: %s \r\n", configInfo.cfg.device);
 	rt_kprintf("-----------------------------------------------\r\n");
 }
 
@@ -258,6 +278,7 @@ rt_bool_t LoadConfig(void)
 		rt_memcpy(pCfg->networkdCofig.localIp,DEFAULT_IP,strlen(DEFAULT_IP));
 		rt_memcpy(pCfg->networkdCofig.subnetMask,DEFAULT_IP,strlen(DEFAULT_IP));
 		rt_memcpy(pCfg->networkdCofig.macAddress,DEFAULT_MAC,strlen(DEFAULT_MAC));
+		rt_memcpy(pCfg->device,DEFAULT_DEVICE,strlen(DEFAULT_DEVICE));
 		pCfg->networkdCofig.destPort = 0;
 		pCfg->waterMark = WATERMARK_VALUE;
 		pCfg->manufacture = DISABLE;

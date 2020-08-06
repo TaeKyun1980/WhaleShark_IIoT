@@ -31,6 +31,8 @@ void ApplicationSendMessage(MqData_t *pMqData)
 
 void DeviceReboot(void)
 {
+	rt_kprintf("Device Reboot After 2 seconds\r\n");
+	rt_thread_delay(2000);
 	NVIC_SystemReset();
 }
 
@@ -49,36 +51,11 @@ static void app_main_thread(void *params)
 		if(rt_mq_recv(p_handle->appMq, &pMqData, sizeof(void *), RT_WAITING_FOREVER) == RT_EOK)
 		{
 			MqData_t mqData;
-			PlData plData;
 
 			rt_memcpy(&mqData, pMqData, sizeof(mqData));
 			switch(mqData.messge)
 			{
-			case SMSG_REQ_DATA:
-				rt_memcpy(&plData, mqData.data, mqData.size);
-				rt_kprintf("(Application)Request Data. PL(type:0x%02x, opcode:0x%02x)\r\n", plData.type, plData.opCode);
-				if(PK_TYPE_REQ == plData.type)
-				{
-					if(PK_OPCODE_KEEPALIVE != plData.opCode)
-					{	
-						p_handle->mqData.messge = SMSG_REQ_DATA;
-						rt_memcpy(p_handle->mqData.data, &plData, p_handle->mqData.size=sizeof(plData));
-					}
-				}	
-				break;
-			case SMSG_RESP_DATA:
 			case SMSG_INC_DATA:
-				if(SMSG_RESP_DATA == mqData.messge)
-				{
-					rt_kprintf("(Application)Response Data...\r\n");
-				}
-				else
-				{
-					rt_kprintf("(Application)Indicate Data...\r\n");
-				}
-
-				rt_memcpy(&p_handle->mqData, &mqData, sizeof(mqData));
-				PlcCommSendMessage(&p_handle->mqData);
 				break;
 			}
 		}

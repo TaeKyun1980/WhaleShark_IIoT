@@ -6,15 +6,21 @@
 
 #include <config/appconfig.h>
 #include <network/wifi/wifi.h>
+#include <device/uart/plccomm.h>
 
+#include "application.h"
 #include "networkmanager.h"
 
 #define TCP_BUFFER_MAX	256
+#define RETRY_MAX		3
 
 typedef struct _NetworkInfo
 {
 	rt_mq_t networkManagerMq;
 	rt_thread_t tid;
+	NetworkInfoData networkInfoData;
+	rt_uint16_t tcpSendLength; //Set Tcp data length
+	rt_uint8_t retryCount; //retry count variable
 
 	rt_uint8_t tcpSendBuffer[TCP_BUFFER_MAX];
 }NetworkInfo;
@@ -31,9 +37,10 @@ void NetworkMangerSendMessage(MqData_t *pMqData)
 
 void SendData(rt_uint8_t *pData, rt_size_t dataSize)
 {
-	if( 0 < dataSize )
+	if( 0 < dataSize && (STATUS_STANDBY_SEND == networkInfo.networkInfoData.networkStatus))
 	{
 		MqData_t data;
+		networkInfo.networkInfoData.networkStatus = STATUS_SET_SEND_DATA_LENGTH;
 		data.messge = SMSG_TCP_SEND_DATA;
 		data.size = dataSize;
 		rt_memcpy(data.data,pData,dataSize);
@@ -46,25 +53,34 @@ void NetworkManagerThread(void *params)
 	NetworkInfo *p_handle = (NetworkInfo *)params;
 	MqData_t *pMqData = RT_NULL;
 
-	SendWifiCommand(CMD_QUERY_MODE);
+	SendWifiCommand(CDM_ECHO_OFF);
 
 	while(1)
-{
+	{
 		if(rt_mq_recv(p_handle->networkManagerMq, &pMqData, sizeof(void *), RT_WAITING_FOREVER) == RT_EOK)
 		{
-			NetworkInfoData networkInfoData;
 			MqData_t mqData;
 			rt_memcpy(&mqData, pMqData, sizeof(mqData));
+			rt_memcpy(&p_handle->networkInfoData, mqData.data, sizeof(p_handle->networkInfoData));
 
 			switch(mqData.messge)
 			{
 			case SMSG_WIFI_OK:
 				rt_kprintf("Wi-Fi Response: OK\r\n");
-				rt_memcpy(&networkInfoData, mqData.data, sizeof(networkInfoData));
-				switch(networkInfoData.networkStatus)
+				switch(p_handle->networkInfoData.networkStatus)
 				{
+				case STATUS_WIFI_RESTART:
+					DeInitWifi();
+					DeviceReboot();
+					break;
+				case STATUS_ECHO_OFF:
+					SendWifiCommand(CMD_DISABLE_SLEEP_MODE);
+					break;
+				case STATUS_DISABLE_SLEEP_MODE:
+					SendWifiCommand(CMD_QUERY_MODE);
+					break;
 				case STATUS_GET_WIFI_MODE:
-					switch(networkInfoData.data[0])
+					switch(p_handle->networkInfoData.data[0])
 					{
 					case StationMode:
 						SendWifiCommand(CMD_QUERY_DHCP);
@@ -74,15 +90,21 @@ void NetworkManagerThread(void *params)
 					case SoftAp_StationMode:
 						SendWifiCommand(CMD_SET_MODE);
 						break;
+					default:
+						rt_kprintf("Invalid Mode \r\n");
+						break;
 					}
 					break;
-				case STATUS_NONE:
+				case STATUS_SET_WIFI_MODE:
+					rt_kprintf("Success Setting Wi-Fi Mode\r\n");
+					SendWifiCommand(CMD_QUERY_DHCP);
+					break;
 				case STATUS_CONNECT_WIFI:
 					rt_kprintf("AP Connection Success\r\n");
 					SendWifiCommand(CMD_QUERY_AP_INFO);
 					break;
 				case STATUS_GET_DHCP_INFO:
-					if( RT_TRUE == networkInfoData.data[DHCP_COMPARE_RESULT]) //Result
+					if( RT_TRUE == p_handle->networkInfoData.data[DHCP_COMPARE_RESULT]) //Result
 					{
 						SendWifiCommand(CMD_CONNECT_AP);
 					}
@@ -96,20 +118,20 @@ void NetworkManagerThread(void *params)
 					SendWifiCommand(CMD_CONNECT_AP);
 					break;
 				case STATUS_GET_AP_INFO:
-					if( RT_TRUE == networkInfoData.data[DHCP_MODE_INFO])
+					if( RT_TRUE == p_handle->networkInfoData.data[DHCP_MODE_INFO])
 					{
 						SendWifiCommand(CMD_TCP_CONNECT);//if dhcp enable
 					}
 					else
 					{
-					    SendWifiCommand(CMD_QUERY_LOCAL_INFO);//if dhcp disable
+						SendWifiCommand(CMD_QUERY_LOCAL_INFO);//if dhcp disable
 					}
 					break;
 				case STATUS_SET_LOCAL_INFO:
 					SendWifiCommand(CMD_QUERY_LOCAL_INFO);//if dhcp disable
 					break;
 				case STATUS_GET_LOCAL_INFO:
-					if( CHANGE_LOCAL_INFO != networkInfoData.data[LOCAL_IP_INDEX] && CHANGE_LOCAL_INFO != networkInfoData.data[GATEWAY_IP_INDEX] &&  CHANGE_LOCAL_INFO != networkInfoData.data[NETMASK_IP_INDEX])
+					if( CHANGE_LOCAL_INFO != p_handle->networkInfoData.data[LOCAL_IP_INDEX] && CHANGE_LOCAL_INFO != p_handle->networkInfoData.data[GATEWAY_IP_INDEX] &&  CHANGE_LOCAL_INFO != p_handle->networkInfoData.data[NETMASK_IP_INDEX])
 					{
 						SendWifiCommand(CMD_TCP_CONNECT); //TCP connect
 					}
@@ -120,14 +142,26 @@ void NetworkManagerThread(void *params)
 					break;
 				case STATUS_TCP_CONNECT:
 					rt_kprintf("TCP Connection Success\r\n");
+					if( DISABLE == GetTcpStatus())
+					{
+						SetTcpStatus(ENABLE);
+						p_handle->networkInfoData.networkStatus = STATUS_STANDBY_SEND;
+					}
 					break;
 				case STATUS_READY_TO_SEND_DATA:
-					rt_kprintf("Send the Data. \r\n");
-					TcpSendData(p_handle->tcpSendBuffer);
+					TcpSendData(p_handle->tcpSendBuffer,p_handle->tcpSendLength );
 					break;
 				case STATUS_SEND_DATA:
+					rt_kprintf("Send OK. \r\n");
+					p_handle->networkInfoData.networkStatus = STATUS_WAIT_ACK;
+					break;
+				case STATUS_TCP_DISCONNECT:
+					rt_kprintf("TCP Disconnection Success \r\n");
+					SendWifiCommand(CMD_RESTART);
+					break;
+				case STATUS_RECEIVE_DATA:
 					rt_kprintf("Success Sending Data. \r\n");
-					rt_memset(p_handle->tcpSendBuffer,'\0',TCP_BUFFER_MAX);
+					p_handle->networkInfoData.networkStatus = STATUS_STANDBY_SEND;
 					break;
 				default:
 					break;
@@ -135,23 +169,88 @@ void NetworkManagerThread(void *params)
 				break;
 			case SMSG_WIFI_ERROR:
 				rt_kprintf("Wi-Fi Response: ERROR\r\n");
-				rt_memcpy(&networkInfoData, mqData.data, sizeof(networkInfoData));
-				switch(networkInfoData.networkStatus)
+				switch(p_handle->networkInfoData.networkStatus)
 				{
+				case STATUS_SEND_DATA:
+					if( RETRY_MAX > p_handle->retryCount++)
+					{
+						TcpSendData(p_handle->tcpSendBuffer,p_handle->tcpSendLength );
+					}
+					else
+					{
+						SendWifiCommand(CMD_TCP_DISCONNECT);
+					}
+					break;
 				default:
+					if(ENABLE == GetTcpStatus())
+					{
+						SendWifiCommand(CMD_TCP_DISCONNECT);
+					}
+					else
+					{
+						SendWifiCommand(CMD_RESTART);
+					}
 					break;
 				}
 				break;
 			case SMSG_WIFI_FAIL:
 				rt_kprintf("Wi-Fi Response: FAIL\r\n");
+				switch(p_handle->networkInfoData.networkStatus)
+				{
+				case STATUS_CONNECT_WIFI:
+					if( RETRY_MAX > p_handle->retryCount++)
+					{
+						SendWifiCommand(CMD_CONNECT_AP);
+					}
+					else
+					{
+						SendWifiCommand(CMD_RESTART);
+					}
+					break;
+				default:
+					if(ENABLE == GetTcpStatus())
+					{
+						SendWifiCommand(CMD_TCP_DISCONNECT);
+					}
+					else
+					{
+						SendWifiCommand(CMD_RESTART);
+					}
+					break;
+				}
 				break;
 			case SMSG_WIFI_TIMEOUT:
 				rt_kprintf("Wi-Fi Response Timeout\r\n");
-				rt_kprintf("Check Wi-Fi Module\r\n");
+				switch(p_handle->networkInfoData.networkStatus)
+				{
+				case STATUS_CONNECT_WIFI:
+					if( RETRY_MAX > p_handle->retryCount++)
+					{
+						SendWifiCommand(CMD_CONNECT_AP);
+					}
+					else
+					{
+						rt_kprintf("Restart IoT Gateway and Wi-Fi Module\r\n");
+						SendWifiCommand(CMD_RESTART);
+					}
+					break;
+				default:
+					if(ENABLE == GetTcpStatus())
+					{
+						SendWifiCommand(CMD_TCP_DISCONNECT);
+					}
+					else
+					{
+						SendWifiCommand(CMD_RESTART);
+					}
+					break;
+				}
 				break;
 			case SMSG_TCP_SEND_DATA:
+				rt_memset(&p_handle->tcpSendBuffer,'\0',TCP_BUFFER_MAX); //init buffer before transmit
 				rt_memcpy(&p_handle->tcpSendBuffer, mqData.data, mqData.size);
-				TcpSetDataLength(mqData.size);
+				p_handle->tcpSendLength = mqData.size;
+				TcpSetDataLength(p_handle->tcpSendLength);
 				break;
 			default:
 				break;
@@ -162,11 +261,14 @@ void NetworkManagerThread(void *params)
 
 rt_bool_t StartNetworkManager(void)
 {
+	rt_thread_delay(10000);//To wait init Wi-Fi Module
 	return rt_thread_startup(networkInfo.tid);
 }
 
 void InitNetworkManagerInformation(void)
 {
+	networkInfo.tcpSendLength = 0;
+	networkInfo.retryCount = 0;
 	networkInfo.networkManagerMq = RT_NULL;
 	networkInfo.tid = RT_NULL;
 }
