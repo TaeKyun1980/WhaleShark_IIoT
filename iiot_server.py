@@ -3,10 +3,7 @@ import socket
 import logging
 import redis
 import yaml
-from queue import Queue
-import threading
 import sys
-import os
 import json
 import pika
 
@@ -21,7 +18,6 @@ docker run -d -p 3000:3000 grafana/grafana
 influxdb
 step1 : docker pull influxdb
 step2 :
-
 docker run -p 8086:8086 -v $PROJECT_PATH/WhaleShark_IIoT/config:/var/lib/influxdb influxdb -config /var/lib/influxdb/influxdb.conf -e INFLUXDB_ADMIN_USER=whaleshark -e INFLUXDB_ADMIN_PASSWORD=whaleshark
 Please refer https://www.open-plant.com/knowledge-base/how-to-install-influxdb-docker-for-windows-10/
 """
@@ -36,7 +32,6 @@ def connect_redis(host, port):
     docker pull redis
     docker run --name whaleshark-redis -d -p 6379:6379 redis
     docker run -it --link whaleshark-redis:redis --rm redis redis-cli -h redis -p 6379
-
     
     :param host: redis access host ip
     :param port: redis access port
@@ -114,7 +109,7 @@ def get_messagequeue(address, port):
         param = pika.ConnectionParameters(address,port, '/',credentials )
         connection = pika.BlockingConnection(param)
         channel = connection.channel()
-
+        channel.exchange_declare(exchange='facility', exchange_type='fanout')
     except Exception as e:
         logging.exception(str(e))
 

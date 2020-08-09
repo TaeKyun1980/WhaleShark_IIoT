@@ -6,7 +6,7 @@ import math
 import json
 import calendar
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import datetime
 from net_socket.signal_killer import GracefulInterruptHandler
 
@@ -68,7 +68,7 @@ class AsyncServer:
                 sensor_value = int(pv, 16)
                 
                 
-                d = datetime.datetime.utcnow()
+                d = datetime.datetime.utcnow()+ timedelta(hours=9)
                 unixtime = calendar.timegm(d.utctimetuple())
                 str_hex_utc_time = str(d)
                 
@@ -128,7 +128,16 @@ class AsyncServer:
             client              It is a client socket that works with multiple iiot gateways.
             msg_size            It means the packet size to be acquired at a time from the client socket.
             msg_queue           It means the queue containing the message transmitted from the gateway.
-            """
+        """
+        facilities_dict = {}
+        facilities_info = json.loads(redis_con.get('facilities_info').decode())
+        equipment_keys = facilities_info.keys()
+        for equipment_key in equipment_keys:
+            facilities_dict[equipment_key]={}
+            for sensor_id in  facilities_info[equipment_key].keys():
+                sensor_desc = facilities_info[equipment_key][sensor_id]
+                if sensor_desc not in facilities_dict[equipment_key].keys():
+                    facilities_dict[equipment_key][sensor_desc]=0.0
         with GracefulInterruptHandler() as h:
             while True:
                 if not h.interrupted:
@@ -140,26 +149,24 @@ class AsyncServer:
                                 status, packet, modbus_udp = self.convert_hex2decimal(packet, client)
                                 if status == 'OK':
                                     str_modbus_udp = str(modbus_udp)
-                                    logging.debug('Queue put:'+ str_modbus_udp)
-                                    # msg_queue.put(modbus_udp)
+                                    logging.debug('Queue put:' + str_modbus_udp)
                                     equipment_id = modbus_udp['equipment_id']
                                     sensor_code = modbus_udp['meta']['sensor_cd']
                                     redis_sensor_info = json.loads(redis_con.get('facilities_info'))
-                                    
                                     if equipment_id in redis_sensor_info.keys():
                                         sensor_desc = redis_sensor_info[equipment_id][sensor_code]
-                                        modbus_udp['meta']['sensor_desc'] = sensor_desc
                                         routing_key = modbus_udp['equipment_id']
-                                        
-                                        msg_body = json.dumps(modbus_udp['meta'])
-                                        logging.debug('equipment_id:' + routing_key)
-                                        logging.debug('mqtt publish:' + str(msg_body))
-                                        
-                                        mq_channel.basic_publish(exchange='', routing_key=routing_key, body=msg_body)
-                                        
+                                        facilities_dict[equipment_key]['time']=modbus_udp['meta']['time']
+                                        facilities_dict[equipment_key][sensor_desc] = modbus_udp['meta']['sensor_value']
+                                        logging.debug(routing_key + ','+ sensor_desc + ', update')
+                                        logging.debug(str(facilities_dict))
+                                        mq_channel.basic_publish(exchange='facility', routing_key=routing_key, body=json.dumps(facilities_dict))
                                     else:
                                         acq_message = status + packet + 'no exist key\r\n'
                                         client.sendall(acq_message.encode())
+                                        continue
+                                acq_message = status + packet + '\r\n'
+                                client.sendall(acq_message.encode())
                             except Exception as e:
                                 client.sendall(packet.encode())
                                 logging.exception('message error:' + str(e))
