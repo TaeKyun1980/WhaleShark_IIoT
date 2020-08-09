@@ -3,10 +3,7 @@ import socket
 import logging
 import redis
 import yaml
-from queue import Queue
-import threading
 import sys
-import os
 import json
 import pika
 
@@ -21,19 +18,21 @@ docker run -d -p 3000:3000 grafana/grafana
 influxdb
 step1 : docker pull influxdb
 step2 :
-
 docker run -p 8086:8086 -v $PROJECT_PATH/WhaleShark_IIoT/config:/var/lib/influxdb influxdb -config /var/lib/influxdb/influxdb.conf -e INFLUXDB_ADMIN_USER=whaleshark -e INFLUXDB_ADMIN_PASSWORD=whaleshark
 Please refer https://www.open-plant.com/knowledge-base/how-to-install-influxdb-docker-for-windows-10/
-
 """
 
 def connect_redis(host, port):
     """
-    get connector for redis
-    If you don't have redis, you can use docker.
-    docker network create redis-net
-    docker run --name whaleshark-redis -p 6379:6379 --network redis-net -d redis:alpine redis-server
-
+    Get connector for redis
+    If you don't have redis, you can use redis on docker with follow steps.
+    Getting most recent redis image
+    shell: docker pull redis
+    
+    docker pull redis
+    docker run --name whaleshark-redis -d -p 6379:6379 redis
+    docker run -it --link whaleshark-redis:redis --rm redis redis-cli -h redis -p 6379
+    
     :param host: redis access host ip
     :param port: redis access port
     :return: redis connector
@@ -52,7 +51,7 @@ def connect_redis(host, port):
     return redis_obj
 
 
-def config_equip_desc(address, port):
+def config_equip_desc(address, port, init = False):
     '''
     Configure redis for equipment sensor desc(sensor_cd)
     key : const sensor_cd
@@ -62,19 +61,32 @@ def config_equip_desc(address, port):
     redis_con = None
     try:
         redis_con = connect_redis(address, port)
-        sensor_cd_json = redis_con.get('sensor_cd')
+        facilities_dict = redis_con.get('facilities_info')
+        
+        if facilities_dict == None:
+            facilities_dict = {'TS0001':{
+                                '0001':'TS_VOLT1_(RS)',
+                                '0002':'TS_VOLT1_(ST)',
+                                '0003':'TS_VOLT1_(RT)',
+                                '0004':'TS_AMP1_(R)',
+                                '0005':'TS_AMP1_(S)',
+                                '0006':'TS_AMP1_(T)',
+                                '0007':'INNER_PRESS',
+                                '0008':'PUMP_PRESS',
+                                '0009':'TEMPERATURE1',
+                                '0010':'OVER_TEMP'
+                            }
+            }
+            facilities_json = json.dumps(facilities_dict)
+            redis_con.set('facilities_info', facilities_json)
+            logging.debug('put key facilities_info ')
+            facilities_json = json.loads(redis_con.get('facilities_info'))
 
-        if sensor_cd_json == None:
-            sensor_cd_dict = {'0001':'Power#1 Volt',
-                              '0002':'Power#1 Amp'
-                              }
-            sensor_cd_json = json.dumps(sensor_cd_dict)
-
-            redis_con.set('sensor_cd', sensor_cd_json)
-            sensor_cd_json = json.loads(redis_con.get('sensor_cd'))
-
-            print(sensor_cd_json)
-
+            print(facilities_json)
+        else:
+            if init == True:
+                redis_con.delete('facilities_info')
+                
     except Exception as e:
         logging.error(str(e))
 
@@ -97,14 +109,13 @@ def get_messagequeue(address, port):
         param = pika.ConnectionParameters(address,port, '/',credentials )
         connection = pika.BlockingConnection(param)
         channel = connection.channel()
-
+        channel.exchange_declare(exchange='facility', exchange_type='fanout')
     except Exception as e:
         logging.exception(str(e))
 
     return channel
 
 if __name__ == '__main__':
-
 
     try:
         with open('config/config_server_develop.yaml', 'r') as file:
@@ -127,22 +138,22 @@ if __name__ == '__main__':
         if mq_channel == None:
             logging.error('rabbitmq configuration fail')
             sys.exit()
+            
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_sock.setblocking(0)
         server_sock.bind(('', tcp_port))
         server_sock.listen(1)
-        
         print('IIoT Client Ready ({ip}:{port})'.format(ip=tcp_host, port=tcp_port))
         msg_size = 27
-        msg_queue = Queue()
 
         async_server = AsyncServer()
-        event_manger = asyncio.get_event_loop()
-        event_manger.run_until_complete(async_server.get_client(event_manger, server_sock, msg_size, msg_queue))
+        # msg_queue = Queue()
+        # mqtt_thread = threading.Thread(target=async_server.modbus_mqtt_publish, args=(msg_queue,redis_con,mq_channel))
+        # mqtt_thread.start()
         
-        mqtt_thread = threading.Thread(target=async_server.modbus_mqtt_publish, args=(msg_queue,redis_con,mq_channel))
-        mqtt_thread.start()
-        mqtt_thread.join()
+        event_manger = asyncio.get_event_loop()
+        event_manger.run_until_complete(async_server.get_client(event_manger, server_sock, msg_size, redis_con, mq_channel))
+        # mqtt_thread.join()
        
     except Exception as e:
         print(str(e))
