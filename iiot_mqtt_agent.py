@@ -127,19 +127,6 @@ if __name__ == '__main__':
 	if influxdb_client == None:
 		logging.error('influxdb configuration fail')
 		
-	# db_list = influxdb_client.get_list_database()
-	# influxdb_client.switch_database('facility')
-	# privileges = influxdb_client.get_list_privileges(influxdb_id)
-	# influx_json = [{
-	# 	'measurement': 'TS0001',
-	# 	'fields': {'VOLT_1(R_S)':0.01}
-	# }]
-	# try:
-	# 	influxdb_client.write_points(influx_json)
-	# except Exception as e:
-	# 	print(str(e))
-	# tsdb_client = influxdb_client
-	
 	mq_channel = get_messagequeue(address=rabbitmq_host, port=rabbitmq_port)
 	if mq_channel == None:
 		logging.error('rabbitmq configuration fail')
