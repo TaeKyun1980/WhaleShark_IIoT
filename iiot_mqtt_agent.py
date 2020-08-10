@@ -54,57 +54,57 @@ def connect_influxdb(host, port, id, pwd, db):
 
 
 def get_messagequeue(address, port):
-    '''
-    If you don't have rabbitmq, you can use docker.
-    docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
+	'''
+	If you don't have rabbitmq, you can use docker.
+	docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
 
-    get message queue connector (rabbit mq) with address, port
-    :param address: rabbit mq server ip
-    :param port: rabbitmq server port(AMQP)
-    :return: rabbitmq connection channel
-    '''
-    channel = None
-    try:
-        credentials = pika.PlainCredentials('whaleshark', 'whaleshark')
-        param = pika.ConnectionParameters(address,port, '/',credentials )
-        connection = pika.BlockingConnection(param)
-        channel = connection.channel()
+	get message queue connector (rabbit mq) with address, port
+	:param address: rabbit mq server ip
+	:param port: rabbitmq server port(AMQP)
+	:return: rabbitmq connection channel
+	'''
+	channel = None
+	try:
+		credentials = pika.PlainCredentials('whaleshark', 'whaleshark')
+		param = pika.ConnectionParameters(address,port, '/',credentials )
+		connection = pika.BlockingConnection(param)
+		channel = connection.channel()
 
-    except Exception as e:
-        logging.exception(str(e))
+	except Exception as e:
+		logging.exception(str(e))
 
-    return channel
+	return channel
 
 
 influxdb_client = None
 def callback_mqreceive(ch, method, properties, body):
-    body = body.decode('utf-8')
-    facility_msg_json = json.loads(body)
-    print(facility_msg_json)
-    table_name = list(facility_msg_json.keys())[0]
-    fields={}
-    tags = {}
-    print(facility_msg_json[table_name])
-    for key in facility_msg_json[table_name].keys():
-        if 'time' not in key:
-            tags[key]=float(facility_msg_json[table_name][key])
-            fields[key]=float(facility_msg_json[table_name][key])
-        else:
-            fields[key] = facility_msg_json[table_name][key]
+	body = body.decode('utf-8')
+	facility_msg_json = json.loads(body)
+	print(facility_msg_json)
+	table_name = list(facility_msg_json.keys())[0]
+	fields={}
+	tags = {}
+	print(facility_msg_json[table_name])
+	for key in facility_msg_json[table_name].keys():
+		if 'time' not in key:
+			tags[key]=float(facility_msg_json[table_name][key])
+			fields[key]=float(facility_msg_json[table_name][key])
+		else:
+			fields[key] = facility_msg_json[table_name][key]
 		
-    influx_json=[{
+	influx_json=[{
 		'measurement':table_name,
 		'fields':tags,
 		'tags': tags
 	}]
-    try:
-        if influxdb_client.write_points(influx_json) == True:
-            logging.debug('influx write success' + str(influx_json))
-        else:
-            logging.debug('influx write faile')
+	try:
+		if influxdb_client.write_points(influx_json) == True:
+			logging.debug('influx write success' + str(influx_json))
+		else:
+			logging.debug('influx write faile')
 			
-    except Exception as e:
-        print(str(e))
+	except Exception as e:
+		print(str(e))
 		
 	
 if __name__ == '__main__':
@@ -144,4 +144,3 @@ if __name__ == '__main__':
 			logging.error(str(e))
 	
 	mq_channel.start_consuming()
-		
