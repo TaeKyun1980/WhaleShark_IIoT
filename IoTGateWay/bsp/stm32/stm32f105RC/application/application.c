@@ -4,9 +4,6 @@
 
 #include <board.h>
 #include <drivers/rtc.h>
-#ifdef RT_USING_FINSH
-    #include <finsh.h>
-#endif
 
 #include "application.h"
 #include <config/appconfig.h>
@@ -92,88 +89,3 @@ rt_bool_t InitApplication(void)
 
 	return retVal;
 }
-
-#if defined (RT_USING_FINSH)
-    void bk_read(int argc, char **argv)
-    {
-        rt_device_t rtc_dev;
-        rt_err_t    err;
-        rt_uint32_t idx;
-        rt_bk_data_t bk_read;
-
-        if (argc != 2) {
-            rt_kprintf("usage : bk_read 3\r\n");
-            rt_kprintf("read backup 3rd memory and return 4 bytes data\r\n");
-            rt_kprintf("index [1 .. 19]\r\n");
-            return;
-        }
-
-        rtc_dev = rt_device_find("rtc");
-        if (rtc_dev == RT_NULL)
-        {
-            rt_kprintf("rtc is not installed\r\n");
-            return;
-        }
-
-        idx = atoi(argv[1]);
-        bk_read.bk_id = idx;
-
-        err = rt_device_control(rtc_dev, RT_DEVICE_CTRL_RTC_GET_BKDATA, (void *)&bk_read);
-        if (err != RT_EOK)
-        {
-            rt_kprintf("read backup memory error : %d\r\n", err);
-            return;
-        }
-        rt_kprintf("backup memory %d => 0x%08x\r\n", idx, bk_read.bk_data);
-
-        return;
-    }
-    MSH_CMD_EXPORT(bk_read, read backup memory);
-
-    void bk_write(int argc, char **argv)
-    {
-        rt_device_t rtc_dev;
-        rt_err_t    err;
-        rt_uint32_t idx, value;
-        rt_bk_data_t bk_read;
-
-        if (argc != 3) {
-            rt_kprintf("usage : bk_write 3 a5a57878\r\n");
-            rt_kprintf("write backup 3rd memory writing value is 0xA5A57878\r\n");
-            rt_kprintf("index [1 .. 19]\r\n");
-            return;
-        }
-
-        rtc_dev = rt_device_find("rtc");
-        if (rtc_dev == RT_NULL)
-        {
-            rt_kprintf("rtc is not installed\r\n");
-            return;
-        }
-
-        idx = atoi(argv[1]);
-        value = strtoul(argv[2], RT_NULL, 16);
-        bk_read.bk_id = idx;
-        bk_read.bk_data = value;
-
-        err = rt_device_control(rtc_dev, RT_DEVICE_CTRL_RTC_SET_BKDATA, (void *)&bk_read);
-        if (err != RT_EOK)
-        {
-            rt_kprintf("write backup memory error : %d\r\n", err);
-            return;
-        }
-        rt_kprintf("write backup memory %d => 0x%08x\r\n", idx, (rt_uint32_t)bk_read.bk_data);
-
-        bk_read.bk_data = 0;
-        err = rt_device_control(rtc_dev, RT_DEVICE_CTRL_RTC_GET_BKDATA, (void *)&bk_read);
-        if (err != RT_EOK)
-        {
-            rt_kprintf("read backup memory error : %d\r\n", err);
-            return;
-        }
-        rt_kprintf("read BK memory %d => 0x%08x\r\n", idx, (rt_uint32_t)bk_read.bk_data);
-
-        return;
-    }
-    MSH_CMD_EXPORT(bk_write, write backup memory);
-#endif
