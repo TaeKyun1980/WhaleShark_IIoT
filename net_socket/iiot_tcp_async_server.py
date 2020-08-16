@@ -163,7 +163,7 @@ class AsyncServer:
 											logging.debug('mqtt open')
 											mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
 											                         body=json.dumps(facilities_dict))
-											self.redis_con.set('remote_log:mqttpubish','')
+											self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict))
 										else:
 											logging.debug('mqtt closed')
 											logging.debug('reconnecting to queue')
