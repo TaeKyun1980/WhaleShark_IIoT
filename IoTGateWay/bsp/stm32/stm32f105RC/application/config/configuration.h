@@ -53,7 +53,7 @@ void SetApPassword(rt_uint8_t *pData, rt_size_t dataSize);
 rt_uint8_t *GetApSSID(void);
 void SetApSSID(rt_uint8_t *pData, rt_size_t dataSize);
 rt_uint8_t GetDhcpMode(void);
-void SetDhcpMode(rt_uint16_t data);
+void SetDhcpMode(rt_uint8_t data);
 rt_uint8_t *GetMacAddress(void);
 rt_bool_t SetMacAddress(rt_uint8_t *pData, rt_size_t dataSize);
 rt_uint8_t GetManufactureMode(void);

@@ -45,7 +45,8 @@ typedef enum
 typedef enum _WifiCommandID
 {
 	CMD_RESTART,
-	CDM_ECHO_OFF,
+	CMD_ECHO_OFF,
+	CMD_SET_POWER,
 	CMD_DISABLE_SLEEP_MODE,
 	CMD_SET_MODE,
 	CMD_QUERY_MODE,

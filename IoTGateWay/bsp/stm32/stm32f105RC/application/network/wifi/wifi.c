@@ -24,6 +24,7 @@
 #define SEND_DATA_FAIL	"SEND FAIL"
 #define TCP_RECEIVE		"+IPD" //Received Data
 #define ENTER_THE_DATA	">" //Enter The Data
+#define TCP_ERROR		"ER"
 #define WIFI_BAUD_RATE	BAUD_RATE_115200
 #define CMD_MAX_LEN		256 //128 -> 256
 #define WIFI_MAX_LEN	64
@@ -33,7 +34,8 @@
 // ID, COMMAND, COMMAND DESCRIPTION
 static WIFICOMMANDINFO commandInfo[] = {
 	{CMD_RESTART,"RST","[Restart.]\r\n"},
-	{CDM_ECHO_OFF, "ATE0", "[Sets Echo Off.]\r\n"},
+	{CMD_ECHO_OFF, "ATE0", "[Sets Echo Off.]\r\n"},
+	{CMD_SET_POWER,"RFPOWER","[Set RF Power]\r\n"},
 	{CMD_DISABLE_SLEEP_MODE, "SLEEP", "[Sets Sleep Mode.]\r\n"},
 	{CMD_SET_MODE, "CWMODE_DEF", "[Sets the default Wi-Fi mode (Station/AP/Station+AP).]\r\n"},
 	{CMD_QUERY_MODE, "CWMODE_DEF?", "[Query the current Wi-Fi mode.]\r\n"},
@@ -174,11 +176,15 @@ rt_err_t SendWifiCommand(wifiCommandID id)
 		wifiInfo.networkInfoData.networkStatus = STATUS_WIFI_RESTART; //set status
 		len = rt_sprintf((char *)cmd,"%s%s",WIFI_CMD_PREFIX,commandInfo[CMD_RESTART].szCli);
 		break;
-	case CDM_ECHO_OFF: //uart echo off
+	case CMD_ECHO_OFF: //uart echo off
 		wifiInfo.networkInfoData.networkStatus = STATUS_ECHO_OFF;
-		len = rt_sprintf((char *)cmd,"%s",commandInfo[CDM_ECHO_OFF].szCli);
+		len = rt_sprintf((char *)cmd,"%s",commandInfo[CMD_ECHO_OFF].szCli);
 		break;
-	case CMD_DISABLE_SLEEP_MODE: //disable sleep mode
+	case CMD_SET_POWER:
+		wifiInfo.networkInfoData.networkStatus = STATUS_SET_RFPOWER;
+		len = rt_sprintf((char *)cmd,"%s%s=82",WIFI_CMD_PREFIX,commandInfo[CMD_SET_POWER].szCli);
+		break;
+	case CMD_DISABLE_SLEEP_MODE:
 		wifiInfo.networkInfoData.networkStatus = STATUS_DISABLE_SLEEP_MODE;
 		len = rt_sprintf((char *)cmd,"%s%s=0",WIFI_CMD_PREFIX,commandInfo[CMD_DISABLE_SLEEP_MODE].szCli);
 		break;
@@ -450,12 +456,13 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 							wifiInfo.networkInfoData.networkStatus = STATUS_GET_MAC_INFO;
 							break;
 						case CMD_RECEIVE_DATA: //treat the response of server
+							rt_timer_stop(wifiInfo.sendTimeoutTimer);
+							wifiInfo.networkInfoData.networkStatus = STATUS_RECEIVE_DATA;
 							if(0 == rt_strncmp((char *)value,WIFI_OK,rt_strlen(WIFI_OK)))
 							{
 								pNetworkInfoData->response = RESPONSE_WIFI_OK;
-								wifiInfo.networkInfoData.networkStatus = STATUS_RECEIVE_DATA;
 							}
-							else if(0 == rt_strncmp((char *)value,"ER",rt_strlen("ER")))
+							else if(0 == rt_strncmp((char *)value,TCP_ERROR,rt_strlen(TCP_ERROR)))
 							{
 								pNetworkInfoData->response = RESPONSE_WIFI_ERROR;
 							}

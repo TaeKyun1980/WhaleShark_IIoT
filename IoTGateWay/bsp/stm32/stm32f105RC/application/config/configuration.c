@@ -171,7 +171,7 @@ rt_uint8_t GetDhcpMode(void)
 	return configInfo.cfg.networkdCofig.dhcpMode;
 }
 
-void SetDhcpMode(rt_uint16_t data)
+void SetDhcpMode(rt_uint8_t data)
 {
 	Config *pCfg = &configInfo.cfg;
 

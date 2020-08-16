@@ -21,8 +21,9 @@
 #define PV				"PV" //PV
 #define TS				"TS" 
 #define TK				"TK" 
-#define DEV_TYPE_TS		0 //TS 
-#define DEV_TYPE_TK		1 //TK
+#define DEV_TYPE_TS			0
+#define DEV_TYPE_TK			1
+#define DEV_TYPE_INVALID	2
 #define PV_LEN			2
 #define TB_VALUE_LEN	2	//2 bytes value len
 #define FB_VALUE_LEN	4	//4 bytes value len
@@ -45,9 +46,10 @@
 #define SensorCode_15	0x000F
 #define SensorCode_16	0x0010
 #define SensorCode_17	0x0011
+#define SensorCode_18	0x0012
+#define SensorCode_19	0x0013
 
 typedef struct dustCommInfo_tag {
-	rt_mq_t plcMq;
 	MqData_t mqData;
 
 	rt_device_t uport;
@@ -79,7 +81,7 @@ void SetTcpStatus(rt_uint8_t tcpOn)
 	}
 }
 
-static rt_err_t dustcomm_rx_ind(rt_device_t dev, rt_size_t size)
+static rt_err_t plccomm_rx_ind(rt_device_t dev, rt_size_t size)
 {
     return rt_event_send(plcCommInfo.rx_event, SMSG_RX_DATA);
 }
@@ -124,29 +126,23 @@ rt_size_t MakeSensorValue(rt_uint16_t sensorCode, rt_uint8_t *pData, rt_size_t p
 	rt_memcpy(pos, PV, PV_LEN);
 	pos += PV_LEN;
 
+	rt_uint32_t u32Val = 0;
+	length = sizeof(u32Val);
+
 	//Sensor Value
+	rt_memcpy(&u32Val,pData,length);
+	u32Val = HTONL(u32Val);
+	rt_memcpy(pos,&u32Val,length);
+	pos += length;
+
 	if((innerPress == sensorCode) || (outerPress == sensorCode))
 	{
-		rt_uint32_t u32Val = 0;
-		rt_uint8_t length = sizeof(u32Val);
-
-		rt_memcpy(&u32Val,pData,length);
-		u32Val = HTONL(u32Val);
-		rt_memcpy(pos,&u32Val,length);
-		pos += length;
 		flaotingPoint = 3;
 		*pos++ = flaotingPoint;
 
 	}
 	else
 	{
-		rt_uint16_t u16Val = 0;
-		rt_uint8_t 	length = sizeof(u16Val);
-
-		rt_memcpy(&u16Val,pData,length);
-		u16Val = HTONS(u16Val);
-		rt_memcpy(pos,&u16Val,length);
-		pos += length;
 		flaotingPoint = 1;
 		*pos++ = flaotingPoint;
 	}
@@ -165,42 +161,42 @@ static rt_size_t MakeSensorPayloadData(rt_uint8_t *pData, rt_uint16_t length)
 
 	begin++;//Skip STX of PLC Data
 	//sensor 1
-	if( SensorCode_1 ==  sensorCodeCount)
+	if( SensorCode_1 ==  sensorCodeCount) //Voltage1 RS
 	{
 		size += MakeSensorValue(SensorCode_1, begin, size);
 	}
 	begin += TB_VALUE_LEN;
 
 	//sensor 2
-	if( SensorCode_2 ==  sensorCodeCount)
+	if( SensorCode_2 ==  sensorCodeCount) //Voltage1 ST
 	{
 		size += MakeSensorValue(SensorCode_2, begin, size);
 	}
 	begin += TB_VALUE_LEN;
 
 	//sensor 3
-	if( SensorCode_3 ==  sensorCodeCount)
+	if( SensorCode_3 ==  sensorCodeCount) //Voltage1 RT
 	{
 		size += MakeSensorValue(SensorCode_3, begin, size);
 	}
 	begin += TB_VALUE_LEN;
 
 	//sensor 4
-	if( SensorCode_4 ==  sensorCodeCount)
+	if( SensorCode_4 ==  sensorCodeCount) //Current1 R
 	{
 		size += MakeSensorValue(SensorCode_4, begin, size);
 	}
 	begin += TB_VALUE_LEN;
 
 	//sensor 5
-	if( SensorCode_5 ==  sensorCodeCount)
+	if( SensorCode_5 ==  sensorCodeCount) //Current1 T
 	{
 		size += MakeSensorValue(SensorCode_5, begin, size);
 	}
 	begin += TB_VALUE_LEN;
 
 	//sensor 6
-	if( SensorCode_6 ==  sensorCodeCount)
+	if( SensorCode_6 ==  sensorCodeCount) //Current1 T
 	{
 		size += MakeSensorValue(SensorCode_6, begin, size);
 	}
@@ -231,17 +227,24 @@ static rt_size_t MakeSensorPayloadData(rt_uint8_t *pData, rt_uint16_t length)
 		begin += FB_VALUE_LEN;
 
 		//sensor 9
-		if( SensorCode_9 ==  sensorCodeCount)
+		if( SensorCode_9 ==  sensorCodeCount) //temperature PV
 		{
 			size += MakeSensorValue(SensorCode_9, begin, size);
 		}
 		begin += TB_VALUE_LEN;
-		begin += TB_VALUE_LEN;
 
 		//sensor 10
-		if( SensorCode_10 ==  sensorCodeCount)
+		if( SensorCode_10 ==  sensorCodeCount) //temperature SV
 		{
 			size += MakeSensorValue(SensorCode_10, begin, size);
+		}
+		begin += TB_VALUE_LEN;
+		begin += TB_VALUE_LEN;
+
+		//sensor 11
+		if( SensorCode_11 ==  sensorCodeCount) //over temp
+		{
+			size += MakeSensorValue(SensorCode_11, begin, size);
 		}
 	}
 	else// TK
@@ -288,6 +291,14 @@ static rt_size_t MakeSensorPayloadData(rt_uint8_t *pData, rt_uint16_t length)
 
 		//sensor 17
 		size += MakeSensorValue(SensorCode_17, begin, size);
+		begin += TB_VALUE_LEN;
+
+		//sensor 18
+		size += MakeSensorValue(SensorCode_18, begin, size);
+		begin += TB_VALUE_LEN;
+
+		//sensor 19
+		size += MakeSensorValue(SensorCode_19, begin, size);
 	}
 
 	pos = p_base+size;
@@ -359,7 +370,7 @@ static void plccomm_rx_thread(void *params)
     err = rt_device_open(p_handle->uport, RT_DEVICE_OFLAG_RDONLY | RT_DEVICE_FLAG_INT_RX);
 	RT_ASSERT(err == RT_EOK);
 
-	rt_device_set_rx_indicate(p_handle->uport, dustcomm_rx_ind);
+	rt_device_set_rx_indicate(p_handle->uport, plccomm_rx_ind);
 	while(1)
 	{	
 		if(RT_EOK == (err=rt_event_recv(p_handle->rx_event, SMSG_RX_DATA, (RT_EVENT_FLAG_OR|RT_EVENT_FLAG_CLEAR), RT_WAITING_FOREVER, &events))
@@ -433,11 +444,15 @@ void InitPlcCommInfo(rt_uint8_t *pData)
 	{
 		plcCommInfo.devType = DEV_TYPE_TS; //TS
 	}
-	else
+	else if(0 == rt_strncmp((char *)plcCommInfo.devInfo,TK,rt_strlen(TK)))
 	{
 		plcCommInfo.devType = DEV_TYPE_TK; //TK
 	}
-
+	else
+	{
+		plcCommInfo.devType = DEV_TYPE_INVALID;
+		rt_kprintf("Invalid Device\r\n");
+	}
 }	
 
 rt_bool_t InitPlcComm(void)

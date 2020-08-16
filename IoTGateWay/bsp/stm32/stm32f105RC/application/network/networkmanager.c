@@ -13,11 +13,14 @@
 
 #define TCP_BUFFER_MAX	256
 #define RETRY_MAX		3
+#define TCP_RESPONSE_TIMEOUT_DELAY	10000
 
 typedef struct _NetworkInfo
 {
 	rt_mq_t networkManagerMq;
 	rt_thread_t tid;
+	rt_timer_t	responseTimeoutTimer;
+
 	NetworkInfoData networkInfoData;
 	rt_uint16_t tcpSendLength; //Set Tcp data length
 	rt_uint8_t retryCount; //retry count variable
@@ -26,6 +29,12 @@ typedef struct _NetworkInfo
 }NetworkInfo;
 
 NetworkInfo networkInfo;
+
+void ResponseTimeoutTimer(void *params)
+{
+	rt_kprintf("Receive TimeOut\r\n");
+	SendWifiCommand(CMD_RESTART);
+}
 
 void NetworkMangerSendMessage(MqData_t *pMqData)
 {
@@ -53,7 +62,7 @@ void NetworkManagerThread(void *params)
 	NetworkInfo *p_handle = (NetworkInfo *)params;
 	MqData_t *pMqData = RT_NULL;
 
-	SendWifiCommand(CDM_ECHO_OFF);
+	SendWifiCommand(CMD_ECHO_OFF);
 
 	while(1)
 	{
@@ -67,6 +76,7 @@ void NetworkManagerThread(void *params)
 			{
 			case SMSG_WIFI_OK:
 				rt_kprintf("Wi-Fi Response: OK\r\n");
+				p_handle->retryCount = 0;
 				switch(p_handle->networkInfoData.networkStatus)
 				{
 				case STATUS_WIFI_RESTART:
@@ -74,6 +84,9 @@ void NetworkManagerThread(void *params)
 					DeviceReboot();
 					break;
 				case STATUS_ECHO_OFF:
+					SendWifiCommand(CMD_SET_POWER);
+					break;
+				case STATUS_SET_RFPOWER:
 					SendWifiCommand(CMD_DISABLE_SLEEP_MODE);
 					break;
 				case STATUS_DISABLE_SLEEP_MODE:
@@ -154,6 +167,7 @@ void NetworkManagerThread(void *params)
 				case STATUS_SEND_DATA:
 					rt_kprintf("Send OK. \r\n");
 					p_handle->networkInfoData.networkStatus = STATUS_WAIT_ACK;
+					rt_timer_start(p_handle->responseTimeoutTimer);
 					break;
 				case STATUS_TCP_DISCONNECT:
 					rt_kprintf("TCP Disconnection Success \r\n");
@@ -161,6 +175,7 @@ void NetworkManagerThread(void *params)
 					break;
 				case STATUS_RECEIVE_DATA:
 					rt_kprintf("Success Sending Data. \r\n");
+					rt_timer_stop(p_handle->responseTimeoutTimer);
 					p_handle->networkInfoData.networkStatus = STATUS_STANDBY_SEND;
 					break;
 				default:
@@ -168,10 +183,20 @@ void NetworkManagerThread(void *params)
 				}
 				break;
 			case SMSG_WIFI_ERROR:
-				rt_kprintf("Wi-Fi Response: ERROR\r\n");
+				rt_kprintf("[%d]Wi-Fi Response: ERROR\r\n",p_handle->networkInfoData.networkStatus);
 				switch(p_handle->networkInfoData.networkStatus)
 				{
 				case STATUS_SEND_DATA:
+					if( RETRY_MAX > p_handle->retryCount++)
+					{
+						TcpSendData(p_handle->tcpSendBuffer,p_handle->tcpSendLength );
+					}
+					else
+					{
+						SendWifiCommand(CMD_TCP_DISCONNECT);
+					}
+					break;
+				case STATUS_READY_TO_SEND_DATA:
 					if( RETRY_MAX > p_handle->retryCount++)
 					{
 						TcpSendData(p_handle->tcpSendBuffer,p_handle->tcpSendLength );
@@ -190,11 +215,16 @@ void NetworkManagerThread(void *params)
 					{
 						SendWifiCommand(CMD_RESTART);
 					}
+					if( RETRY_MAX > p_handle->retryCount++)
+					{
+						DeInitWifi();
+						DeviceReboot();
+					}
 					break;
 				}
 				break;
 			case SMSG_WIFI_FAIL:
-				rt_kprintf("Wi-Fi Response: FAIL\r\n");
+				rt_kprintf("[%d]Wi-Fi Response: FAIL\r\n",p_handle->networkInfoData.networkStatus);
 				switch(p_handle->networkInfoData.networkStatus)
 				{
 				case STATUS_CONNECT_WIFI:
@@ -220,7 +250,7 @@ void NetworkManagerThread(void *params)
 				}
 				break;
 			case SMSG_WIFI_TIMEOUT:
-				rt_kprintf("Wi-Fi Response Timeout\r\n");
+				rt_kprintf("[%d]Wi-Fi Response Timeout\r\n",p_handle->networkInfoData.networkStatus);
 				switch(p_handle->networkInfoData.networkStatus)
 				{
 				case STATUS_CONNECT_WIFI:
@@ -290,6 +320,9 @@ rt_bool_t InitNetworkManager(void)
 
 	h_data->tid = rt_thread_create("networkmanager", NetworkManagerThread, (void *)h_data, NETWORKMANAGER_STACK_SIZE, RT_MAIN_THREAD_PRIORITY, 20);
 	RT_ASSERT(RT_NULL != h_data->tid);
+
+	h_data->responseTimeoutTimer = rt_timer_create("responseTimeoutTimer", ResponseTimeoutTimer, (void *)h_data, rt_tick_from_millisecond(TCP_RESPONSE_TIMEOUT_DELAY), RT_TIMER_FLAG_ONE_SHOT);
+	RT_ASSERT(RT_NULL != h_data->responseTimeoutTimer);
 
 	return (retVal=InitWifi());
 }
