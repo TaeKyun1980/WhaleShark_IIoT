@@ -8,6 +8,9 @@ import calendar
 import time
 from datetime import datetime, timedelta
 import datetime
+
+import pika
+
 from net_socket.signal_killer import GracefulInterruptHandler
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -18,7 +21,7 @@ class AsyncServer:
 		return tuple(i for i in list)
 
 
-	def convert_hex2decimal(self, packet_bytes, readable_sock):
+	def convert_hex2decimal(self, packet_bytes, host,port):
 		"""
 		In the packet, the hexadecimal value is converted to a decimal value, structured in json format, and returned.
 
@@ -44,35 +47,28 @@ class AsyncServer:
 															 }}
 		try:
 			byte_tuple = self.convert(list(packet_bytes))
-			print(byte_tuple)
-
+			logging.debug('byte message'+str(byte_tuple))
 			if byte_tuple[0] == 2 and (byte_tuple[16] == 3 or byte_tuple[18] == 3):
 				group = chr(byte_tuple[5]) + chr(byte_tuple[6])
 				group_code = int('0x{:02x}'.format(byte_tuple[7]) + '{:02x}'.format(byte_tuple[8]), 16)
 				group_code = '{0:04d}'.format(group_code)
-
 				sensor_code = int('0x{:02x}'.format(byte_tuple[9]) + '{:02x}'.format(byte_tuple[10]), 16)
 				sensor_code = '{0:04d}'.format(sensor_code)
-
 				if sensor_code == '0007' or sensor_code == '0008':
 					"""
 					Pressure Exception Controll
 					"""
-					logging.debug('pressure:' + str(sensor_code))
+					logging.debug('**8Byte pressure:' + str(sensor_code))
 					pv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14]) + '{:02x}'.format(
 						byte_tuple[15]) + '{:02x}'.format(byte_tuple[16])
 					precision = int('0x{:02x}'.format(byte_tuple[17]), 16)
 				else:
+					logging.debug('**4Byte Normal:'+str(sensor_code))
 					pv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14])
 					precision = int('0x{:02x}'.format(byte_tuple[15]), 16)
 				sensor_value = int(pv, 16)
-
-
-				d = datetime.datetime.utcnow()+ timedelta(hours=9)
-				unixtime = calendar.timegm(d.utctimetuple())
-				str_hex_utc_time = str(d)
-
-				host, port = readable_sock.getpeername()
+				timestamp = datetime.datetime.utcnow()+ timedelta(hours=9)
+				str_hex_utc_time = str(timestamp)[0:len('2020-08-15 21:04:58')]
 				modbus_dict = {'equipment_id': group+group_code, 'meta': {'ip': host,
 																	'port': port,
 																	'time': str_hex_utc_time,
@@ -138,7 +134,8 @@ class AsyncServer:
 						if packet:
 							try:
 								logging.debug('try convert')
-								status, packet, modbus_udp = self.convert_hex2decimal(packet, client)
+								host,port=client.getpeername()
+								status, packet, modbus_udp = self.convert_hex2decimal(packet, host,port)
 								if status == 'OK':
 									str_modbus_udp = str(modbus_udp)
 									logging.debug('Queue put:' + str_modbus_udp)
@@ -154,15 +151,31 @@ class AsyncServer:
 										pv = float(pv)
 										precision = math.pow(10, float(precision))
 										modbus_udp['meta']['sensor_value'] = pv / precision
+										logging.debug('redis:'+'gateway_cvt set')
+										self.redis_con.set('remote_log:modbus_udp', json.dumps(modbus_udp))
+
 										facilities_dict[equipment_key][sensor_desc] = modbus_udp['meta']['sensor_value']
-										logging.debug(routing_key + ','+ sensor_desc + ', update')
-										logging.debug(str(facilities_dict))
-										mq_channel.basic_publish(exchange='facility', routing_key=routing_key, body=json.dumps(facilities_dict))
+										logging.debug('mq exchange:facility')
+										logging.debug('mq routing_key:'+routing_key)
+										logging.debug('mq body:'+str(json.dumps(facilities_dict)))
+
+										if mq_channel.is_open == True:
+											logging.debug('mqtt open')
+											mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
+											                         body=json.dumps(facilities_dict))
+											self.redis_con.set('remote_log:mqttpubish','')
+										else:
+											logging.debug('mqtt closed')
+											logging.debug('reconnecting to queue')
+											mq_channel.connect()
+											mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
+											                         body=json.dumps(facilities_dict))
 									else:
 										acq_message = status + packet + 'no exist key\r\n'
 										client.sendall(acq_message.encode())
 										continue
 								acq_message = status + packet + '\r\n'
+								logging.debug('rtn:'+ acq_message)
 								client.sendall(acq_message.encode())
 							except Exception as e:
 								client.sendall(packet.encode())

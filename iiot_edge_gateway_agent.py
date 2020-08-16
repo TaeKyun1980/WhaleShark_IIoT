@@ -20,9 +20,8 @@ class sock_client:
 
     def send_data(self,pv, precision):
         try:
-            d = datetime.datetime.utcnow()
-            unixtime = calendar.timegm(d.utctimetuple())
-
+            timestamp = datetime.datetime.utcnow()
+            unixtime = calendar.timegm(timestamp.utctimetuple())
             str_hex_utc_time = str(hex(unixtime)).replace('0x', '').encode()
 
             stx = str.encode('{:1x}'.format(2))
