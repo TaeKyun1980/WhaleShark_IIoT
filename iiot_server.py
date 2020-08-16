@@ -93,12 +93,7 @@ class tcp_server:
 					'0010':'OVER_TEMP'
 				}
 				}
-				facilities_json=json.dumps(facilities_dict)
-				redis_con.set('facilities_info',facilities_json)
-				logging.debug('put key facilities_info ')
-				facilities_json=json.loads(redis_con.get('facilities_info'))
-
-				print(facilities_json)
+				redis_con.set('facilities_info',json.dumps(facilities_dict))
 			else:
 				if init==True:
 					redis_con.delete('facilities_info')
