@@ -148,7 +148,7 @@ class AsyncServer:
 										facilities_dict[equipment_key]['time']=modbus_udp['meta']['time']
 										pv = modbus_udp['meta']['sensor_value']
 										precision = modbus_udp['meta']['precision']
-										pv = float(pv)
+										pv = float(pv) * 10.0
 										precision = math.pow(10, float(precision))
 										modbus_udp['meta']['sensor_value'] = pv / precision
 										logging.debug('redis:'+'gateway_cvt set')
