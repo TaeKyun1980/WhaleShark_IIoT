@@ -5,7 +5,7 @@ import calendar
 import time
 import math
 
-from instrument_driver.autonics.modbus_tk4s import autonics_pid_tk4s
+from instrument_driver.autonics.instrument_bridge import instrument
 
 host = 'localhost'
 port = 1233
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     MODE_ASCII = "ascii"
     widows_port = 'COM3'
     mac_port = '/dev/cu.usbserial-AQ00WOQH'
-    tk4s = autonics_pid_tk4s(port=mac_port, station_id=1, baudrate=19200, databits=8, parity=PARITY_NONE, stopbits=2, mode=MODE_RTU)
+    tk4s = instrument(port=mac_port,station_id=1,baudrate=19200,databits=8,parity=PARITY_NONE,stopbits=2,mode=MODE_RTU)
     while True:
         pv, precision = tk4s.scan_pv()
         client.send_data(pv, precision)
