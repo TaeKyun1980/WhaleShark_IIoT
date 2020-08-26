@@ -68,7 +68,7 @@ if __name__ == '__main__':
 	slave_list=[]
 	for slave_desc in slaves_desc.keys():
 		instrument=instruments()
-		print(slaves_desc[slave_desc])
+		print(slaves_desc[slave_desc]),
 		print(slaves_desc[slave_desc]['vendor'])
 		print(slaves_desc[slave_desc]['model_name'])
 		print(slaves_desc[slave_desc]['stationid'])

@@ -1,5 +1,7 @@
 import minimalmodbus
 import math
+
+import serial
 import yaml
 
 class instruments:
@@ -9,15 +11,17 @@ class instruments:
 
 
 	def connect(self,slave_desc):
-		self.instrument=minimalmodbus.Instrument(slave_desc['port'],
-		                                         slave_desc['stationid'],
-		                                         slave_desc['mode'])
+		self.instrument=minimalmodbus.Instrument(slave_desc['port'], slave_desc['stationid'], slave_desc['mode'])
 		self.instrument.serial.baudrate=slave_desc['baudrate']
 		self.instrument.serial.bytesize=slave_desc['databits']
-		self.instrument.serial.parity=slave_desc['parity']
+		if slave_desc['parity'] == 'None':
+			self.instrument.serial.parity=serial.PARITY_NONE
+
 		self.instrument.serial.stopbits=slave_desc['stopbits']
 		self.instrument.serial.timeout=slave_desc['timeout']
 		self.instrument.mode=slave_desc['mode']
+		self.pv_address = slave_desc['pv']
+		self.precision_address=slave_desc['precision']
 
 	def scan_pv(self):
 		"""
