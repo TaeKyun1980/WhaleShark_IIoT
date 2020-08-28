@@ -1,0 +1,22 @@
+{
+  "slaves": [
+    "slave1"
+  ],
+  "slave1": {
+    "facility_name": "TS",
+    "facility_id": "01",
+    "vendor": "autonics series",
+    "model_name": "tk4s",
+    "com_type": "serial",
+    "stationid": 1,
+    "port": "/dev/tty.usbserial-AQ00WOQH",
+    "baudrate": 19200,
+    "databits": 8,
+    "parity": "None",
+    "stopbits": 2,
+    "timeout": 1.5,
+    "mode": "rtu",
+    "PV": [{"temp":1000,"decimalpoint": 1001},{}],
+    "SV": [{"temp":1003,"decimalpoint": 1001}]
+  }
+}
