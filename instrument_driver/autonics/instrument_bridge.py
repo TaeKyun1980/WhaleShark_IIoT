@@ -1,6 +1,6 @@
 import minimalmodbus
-import math
-import yaml
+import serial
+
 
 class instruments:
 
@@ -9,26 +9,35 @@ class instruments:
 
 
 	def connect(self,slave_desc):
-		self.instrument=minimalmodbus.Instrument(slave_desc['port'],
-		                                         slave_desc['stationid'],
-		                                         slave_desc['mode'])
-		self.instrument.serial.baudrate=slave_desc['baudrate']
-		self.instrument.serial.bytesize=slave_desc['databits']
-		self.instrument.serial.parity=slave_desc['parity']
-		self.instrument.serial.stopbits=slave_desc['stopbits']
-		self.instrument.serial.timeout=slave_desc['timeout']
-		self.instrument.mode=slave_desc['mode']
+		if slave_desc['com_type'] == 'serial':
+			self.com_type = 'serial'
+			self.instrument=minimalmodbus.Instrument(slave_desc['port'], slave_desc['stationid'], slave_desc['mode'])
+			if slave_desc['parity'] == 'None':
+				self.instrument.serial.parity=serial.PARITY_NONE
+			elif slave_desc['parity'] == 'Even':
+				self.instrument.serial.parity=serial.PARITY_EVEN
+			elif slave_desc['parity'] == 'Odd':
+				self.instrument.serial.parity=serial.PARITY_ODD
 
-	def scan_pv(self):
+			self.instrument.serial.baudrate=slave_desc['baudrate']
+			self.instrument.serial.bytesize=slave_desc['databits']
+			self.instrument.serial.stopbits=slave_desc['stopbits']
+			self.instrument.serial.timeout=slave_desc['timeout']
+			self.instrument.mode=slave_desc['mode']
+			self.function={}
+			self.function['pv']=slave_desc['pv']
+			self.function['sv']=slave_desc['sv']
+			self.facility_name=(slave_desc['facility_name'][0:1],slave_desc['facility_name'][1:2])
+			self.facility_id=(slave_desc['facility_id'][0:1],slave_desc['facility_id'][1:2])
+
+
+	def get_function_value(self, address):
 		"""
 		get pv value of pid controller (model name : AUTONICS tk4s)
 		"""
 		try:
-			pv = self.instrument.read_register(self.pv_address, 0, functioncode=int('0x04', 16))
-			precision = self.instrument.read_register(self.precision_address, 0, functioncode=int('0x04', 16))
-			if precision > 0:
-				pv = float(pv) * math.pow(10, precision)
-			return pv, precision
+			fv = self.instrument.read_register(address, 0, functioncode=int('0x04', 16))
+			return fv
 
 		except Exception as e:
 			print(e)

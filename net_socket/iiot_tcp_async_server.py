@@ -33,7 +33,7 @@ class AsyncServer:
 		utc time is the time when the sensor value is received from the iiot gate
 		equipment id means the id of the equipment and is predefined in the database.
 		sensor code is means the sensor's type like as tempeatur, pressure, voltage,...
-		precision means the accuracy of sensor value, decimal point.
+		decimal_point means the accuracy of sensor value, decimal point.
 		The sensor value means the sensor value installed in the facility.
 		"""
 		status = 'ER'
@@ -43,7 +43,7 @@ class AsyncServer:
 															 'sensor_cd':'' ,
 															 'fun_cd':'' ,
 															 'sensor_value': '',
-															 'precision':''
+															 'decimal_point':''
 															 }}
 		try:
 			byte_tuple = self.convert(list(packet_bytes))
@@ -54,19 +54,21 @@ class AsyncServer:
 				group_code = '{0:04d}'.format(group_code)
 				sensor_code = int('0x{:02x}'.format(byte_tuple[9]) + '{:02x}'.format(byte_tuple[10]), 16)
 				sensor_code = '{0:04d}'.format(sensor_code)
+				fn=chr(byte_tuple[11]) +chr(byte_tuple[12])
+				logging.debug('function name:'+ fn)
 				if sensor_code == '0007' or sensor_code == '0008':
 					"""
 					Pressure Exception Controll
 					"""
 					logging.debug('**8Byte pressure:' + str(sensor_code))
-					pv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14]) + '{:02x}'.format(
+					fv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14]) + '{:02x}'.format(
 						byte_tuple[15]) + '{:02x}'.format(byte_tuple[16])
-					precision = int('0x{:02x}'.format(byte_tuple[17]), 16)
+					decimal_point = int('0x{:02x}'.format(byte_tuple[17]), 16)
 				else:
 					logging.debug('**4Byte Normal:'+str(sensor_code))
-					pv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14])
-					precision = int('0x{:02x}'.format(byte_tuple[15]), 16)
-				sensor_value = int(pv, 16)
+					fv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14])
+					decimal_point = int('0x{:02x}'.format(byte_tuple[15]), 16)
+				fv = int(fv, 16)
 				timestamp = datetime.datetime.utcnow()+ timedelta(hours=9)
 				str_hex_utc_time = str(timestamp)[0:len('2020-08-15 21:04:58')]
 				modbus_dict = {'equipment_id': group+group_code, 'meta': {'ip': host,
@@ -74,8 +76,8 @@ class AsyncServer:
 																	'time': str_hex_utc_time,
 																	'sensor_cd': sensor_code,
 																	'fun_cd': 'PV',
-																	'sensor_value': sensor_value,
-																	'precision': precision
+																	'sensor_value': fv,
+																	'decimal_point': decimal_point
 																	}}
 
 				status = 'OK'
@@ -101,7 +103,7 @@ class AsyncServer:
 			while True:
 				if not h.interrupted:
 					client, _ = await event_manger.sock_accept(server_sock)
-					event_manger.create_task(self.manage_client(event_manger, client, msg_size, mq_channel))
+					event_manger.create_task(self.manage_client(event_manger,client,msg_size,mq_channel))
 				else:
 					client.close()
 					server_sock.close()
@@ -131,60 +133,62 @@ class AsyncServer:
 				if not h.interrupted:
 					try:
 						packet = (await event_manger.sock_recv(client, msg_size))
-						if packet:
-							try:
-								logging.debug('try convert')
-								host,port=client.getpeername()
-								status, packet, modbus_udp = self.convert_hex2decimal(packet, host,port)
-								if status == 'OK':
-									str_modbus_udp = str(modbus_udp)
-									logging.debug('Queue put:' + str_modbus_udp)
-									equipment_id = modbus_udp['equipment_id']
-									sensor_code = modbus_udp['meta']['sensor_cd']
-									redis_sensor_info = json.loads(self.redis_con.get('facilities_info'))
-									if equipment_id in redis_sensor_info.keys():
-										sensor_desc = redis_sensor_info[equipment_id][sensor_code]
-										routing_key = modbus_udp['equipment_id']
-										facilities_dict[equipment_key]['time']=modbus_udp['meta']['time']
-										pv = modbus_udp['meta']['sensor_value']
-										precision = modbus_udp['meta']['precision']
-										pv = float(pv) * math.pow(10, float(precision))
-										precision = math.pow(10, float(precision))
-										modbus_udp['meta']['sensor_value'] = pv / precision
-										logging.debug('redis:'+'gateway_cvt set')
-										self.redis_con.set('remote_log:modbus_udp', json.dumps(modbus_udp))
-
-										facilities_dict[equipment_key][sensor_desc] = modbus_udp['meta']['sensor_value']
-										logging.debug('mq exchange:facility')
-										logging.debug('mq routing_key:'+routing_key)
-										logging.debug('mq body:'+str(json.dumps(facilities_dict)))
-
-										if mq_channel.is_open == True:
-											logging.debug('mqtt open')
-											mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
-											                         body=json.dumps(facilities_dict))
-											self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict))
-										else:
-											logging.debug('mqtt closed')
-											logging.debug('reconnecting to queue')
-											mq_channel.connect()
-											mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
-											                         body=json.dumps(facilities_dict))
-									else:
-										acq_message = status + packet + 'no exist key\r\n'
-										client.sendall(acq_message.encode())
-										continue
-								acq_message = status + packet + '\r\n'
-								logging.debug('rtn:'+ acq_message)
-								client.sendall(acq_message.encode())
-							except Exception as e:
-								client.sendall(packet.encode())
-								logging.exception('message error:' + str(e))
-						else:
-							client.close()
 					except Exception as e:
-						logging.exception('manage client exception:' + str(e))
+						logging.exception('manage client exception:'+str(e))
+						client.close()
 						break
+
+					if packet:
+						try:
+							logging.debug('try convert')
+							host,port=client.getpeername()
+							status, packet, modbus_udp = self.convert_hex2decimal(packet, host,port)
+							if status == 'OK':
+								str_modbus_udp = str(modbus_udp)
+								logging.debug('Queue put:' + str_modbus_udp)
+								equipment_id = modbus_udp['equipment_id']
+								sensor_code = modbus_udp['meta']['sensor_cd']
+								redis_sensor_info = json.loads(self.redis_con.get('facilities_info'))
+								if equipment_id in redis_sensor_info.keys():
+									sensor_desc = redis_sensor_info[equipment_id][sensor_code]
+									routing_key = modbus_udp['equipment_id']
+									facilities_dict[equipment_key]['time']=modbus_udp['meta']['time']
+									pv = modbus_udp['meta']['sensor_value']
+									decimal_point=modbus_udp['meta']['decimal_point']
+									pv = float(pv) * math.pow(10, float(decimal_point))
+									decimal_point=math.pow(10, float(decimal_point))
+									modbus_udp['meta']['sensor_value'] = pv / decimal_point
+									logging.debug('redis:'+'gateway_cvt set')
+									self.redis_con.set('remote_log:modbus_udp', json.dumps(modbus_udp))
+
+									facilities_dict[equipment_key][sensor_desc] = modbus_udp['meta']['sensor_value']
+									logging.debug('mq exchange:facility')
+									logging.debug('mq routing_key:'+routing_key)
+									logging.debug('mq body:'+str(json.dumps(facilities_dict)))
+
+									if mq_channel.is_open == True:
+										logging.debug('mqtt open')
+										mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
+										                         body=json.dumps(facilities_dict))
+										self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict))
+									else:
+										logging.debug('mqtt closed')
+										logging.debug('reconnecting to queue')
+										mq_channel.connect()
+										mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
+										                         body=json.dumps(facilities_dict))
+								else:
+									acq_message = status + packet + 'no exist key\r\n'
+									client.sendall(acq_message.encode())
+									continue
+							acq_message = status + packet + '\r\n'
+							logging.debug('rtn:'+ acq_message)
+							client.sendall(acq_message.encode())
+						except Exception as e:
+							client.sendall(packet.encode())
+							logging.exception('message error:' + str(e))
+					else:
+						client.close()
 				else:
 					client.close()
 					sys.exit(0)

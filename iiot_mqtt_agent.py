@@ -103,10 +103,38 @@ def callback_mqreceive(ch, method, properties, body):
 		else:
 			logging.debug('influx write faile')
 			
+<<<<<<< HEAD
 	except Exception as e:
 		print(str(e))
 		
 	
+=======
+    except Exception as e:
+        print(str(e))
+
+
+def config_facility_desc(redis_con):
+	facilities_dict=redis_con.get('facilities_info')
+
+	if facilities_dict==None:
+		facilities_dict={'TS0001':{
+			'0001':'TS_VOLT1_(RS)',
+			'0002':'TS_VOLT1_(ST)',
+			'0003':'TS_VOLT1_(RT)',
+			'0004':'TS_AMP1_(R)',
+			'0005':'TS_AMP1_(S)',
+			'0006':'TS_AMP1_(T)',
+			'0007':'INNER_PRESS',
+			'0008':'PUMP_PRESS',
+			'0009':'TEMPERATURE1',
+			'0010':'OVER_TEMP'
+		}
+		}
+		redis_con.set('facilities_info',json.dumps(facilities_dict))
+
+
+
+>>>>>>> feature/agent
 if __name__ == '__main__':
 	with open('config/config_server_develop.yaml', 'r') as file:
 		config_obj = yaml.load(file, Loader=yaml.FullLoader)
@@ -132,6 +160,7 @@ if __name__ == '__main__':
 		logging.error('rabbitmq configuration fail')
 	
 	redis_con = connect_redis(redis_host, redis_port)
+	config_facility_desc(redis_con)
 	facilities_dict = json.loads(redis_con.get('facilities_info'))
 	for facility in facilities_dict.keys():
 		result = mq_channel.queue_declare(queue=facility, exclusive=True)
