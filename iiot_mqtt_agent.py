@@ -103,14 +103,8 @@ def callback_mqreceive(ch, method, properties, body):
 		else:
 			logging.debug('influx write faile')
 			
-<<<<<<< HEAD
 	except Exception as e:
 		print(str(e))
-		
-	
-=======
-    except Exception as e:
-        print(str(e))
 
 
 def config_facility_desc(redis_con):
@@ -133,8 +127,6 @@ def config_facility_desc(redis_con):
 		redis_con.set('facilities_info',json.dumps(facilities_dict))
 
 
-
->>>>>>> feature/agent
 if __name__ == '__main__':
 	with open('config/config_server_develop.yaml', 'r') as file:
 		config_obj = yaml.load(file, Loader=yaml.FullLoader)
