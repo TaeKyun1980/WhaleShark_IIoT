@@ -61,7 +61,7 @@ class AsyncServer:
                 fv='0x{:02x}'.format(byte_tuple[13])+'{:02x}'.format(byte_tuple[14])+'{:02x}'.format(
 	                byte_tuple[15])+'{:02x}'.format(byte_tuple[16])
                 decimal_point=int('0x{:02x}'.format(byte_tuple[17]),16)
-                
+
                 fv = int(fv, 16)
                 timestamp = datetime.datetime.utcnow()+ timedelta(hours=9)
                 str_hex_utc_time = str(timestamp)[0:len('2020-08-15 21:04:58')]
