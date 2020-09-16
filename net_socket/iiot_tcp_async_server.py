@@ -56,18 +56,12 @@ class AsyncServer:
                 sensor_code = '{0:04d}'.format(sensor_code)
                 fn=chr(byte_tuple[11]) +chr(byte_tuple[12])
                 logging.debug('function name:'+ fn)
-                if sensor_code == '0007' or sensor_code == '0008':
-                    """
-                    Pressure Exception Controll
-                    """
-                    logging.debug('**8Byte pressure:' + str(sensor_code))
-                    fv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14]) + '{:02x}'.format(
-                        byte_tuple[15]) + '{:02x}'.format(byte_tuple[16])
-                    decimal_point = int('0x{:02x}'.format(byte_tuple[17]), 16)
-                else:
-                    logging.debug('**4Byte Normal:'+str(sensor_code))
-                    fv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14])
-                    decimal_point = int('0x{:02x}'.format(byte_tuple[15]), 16)
+
+                logging.debug('**8Byte pressure:'+str(sensor_code))
+                fv='0x{:02x}'.format(byte_tuple[13])+'{:02x}'.format(byte_tuple[14])+'{:02x}'.format(
+	                byte_tuple[15])+'{:02x}'.format(byte_tuple[16])
+                decimal_point=int('0x{:02x}'.format(byte_tuple[17]),16)
+                
                 fv = int(fv, 16)
                 timestamp = datetime.datetime.utcnow()+ timedelta(hours=9)
                 str_hex_utc_time = str(timestamp)[0:len('2020-08-15 21:04:58')]
@@ -170,6 +164,7 @@ class AsyncServer:
                                         logging.debug('mqtt open')
                                         mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
                                                                  body=json.dumps(facilities_dict))
+
                                         self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict))
                                     else:
                                         logging.debug('mqtt closed')
