@@ -89,8 +89,9 @@ class tcp_server:
                     '0006':'TS_AMP1_(T)',
                     '0007':'INNER_PRESS',
                     '0008':'PUMP_PRESS',
-                    '0009':'TEMPERATURE1',
-                    '0010':'OVER_TEMP'
+                    '0009':'TEMPERATURE1(PV)',
+	                '0010':'TEMPERATURE1(SV)',
+                    '0011':'OVER_TEMP'
                 }
                 }
                 redis_con.set('facilities_info',json.dumps(facilities_dict))
@@ -106,7 +107,7 @@ class tcp_server:
     def get_messagequeue(self,address,port):
         '''
         If you don't have rabbitmq, you can use docker.
-        docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
+        docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e RABBITMQ_DEFAULT_PASS=whalesharkwhaleshark rabbitmq:3-management
 
         get message queue connector (rabbit mq) with address, port
         :param address: rabbit mq server ip

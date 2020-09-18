@@ -57,11 +57,10 @@ class AsyncServer:
                 fn=chr(byte_tuple[11]) +chr(byte_tuple[12])
                 logging.debug('function name:'+ fn)
 
-                logging.debug('**8Byte pressure:'+str(sensor_code))
                 fv='0x{:02x}'.format(byte_tuple[13])+'{:02x}'.format(byte_tuple[14])+'{:02x}'.format(
 	                byte_tuple[15])+'{:02x}'.format(byte_tuple[16])
                 decimal_point=int('0x{:02x}'.format(byte_tuple[17]),16)
-
+                logging.debug('**8Byte pressure:'+str(sensor_code) + ':' + fv)
                 fv = int(fv, 16)
                 timestamp = datetime.datetime.utcnow()+ timedelta(hours=9)
                 str_hex_utc_time = str(timestamp)[0:len('2020-08-15 21:04:58')]
@@ -69,7 +68,7 @@ class AsyncServer:
                                                                     'port': port,
                                                                     'time': str_hex_utc_time,
                                                                     'sensor_cd': sensor_code,
-                                                                    'fun_cd': 'PV',
+                                                                    'fun_cd': fn,
                                                                     'sensor_value': fv,
                                                                     'decimal_point': decimal_point
                                                                     }}
@@ -142,6 +141,7 @@ class AsyncServer:
                                 logging.debug('Queue put:' + str_modbus_udp)
                                 equipment_id = modbus_udp['equipment_id']
                                 sensor_code = modbus_udp['meta']['sensor_cd']
+
                                 redis_sensor_info = json.loads(self.redis_con.get('facilities_info'))
                                 if equipment_id in redis_sensor_info.keys():
                                     sensor_desc = redis_sensor_info[equipment_id][sensor_code]
@@ -149,7 +149,7 @@ class AsyncServer:
                                     facilities_dict[equipment_key]['time']=modbus_udp['meta']['time']
                                     pv = modbus_udp['meta']['sensor_value']
                                     decimal_point=modbus_udp['meta']['decimal_point']
-                                    pv = float(pv) * math.pow(10, float(decimal_point))
+                                    pv = float(pv) #* math.pow(10, float(decimal_point))
                                     decimal_point=math.pow(10, float(decimal_point))
                                     modbus_udp['meta']['sensor_value'] = pv / decimal_point
                                     logging.debug('redis:'+'gateway_cvt set')
