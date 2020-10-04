@@ -21,7 +21,7 @@ class AsyncServer:
         return tuple(i for i in list)
 
 
-    def convert_hex2decimal(self, packet_bytes, host,port):
+    def convert_hex2decimal(self, packet_bytes, host, port):
         """
         In the packet, the hexadecimal value is converted to a decimal value, structured in json format, and returned.
 
@@ -159,19 +159,14 @@ class AsyncServer:
                                     logging.debug('mq exchange:facility')
                                     logging.debug('mq routing_key:'+routing_key)
                                     logging.debug('mq body:'+str(json.dumps(facilities_dict)))
-
-                                    if mq_channel.is_open == True:
+                                    try:
                                         logging.debug('mqtt open')
                                         mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
                                                                  body=json.dumps(facilities_dict))
 
                                         self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict))
-                                    else:
+                                    except Exception as e:
                                         logging.debug('mqtt closed')
-                                        logging.debug('reconnecting to queue')
-                                        mq_channel.connect()
-                                        mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
-                                                                 body=json.dumps(facilities_dict))
                                 else:
                                     acq_message = status + packet + 'no exist key\r\n'
                                     client.sendall(acq_message.encode())
