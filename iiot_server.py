@@ -39,6 +39,13 @@ class tcp_server:
             self.rabbitmq_host=config_obj['iiot_server']['rabbit_mq']['ip_address']
             self.rabbitmq_port=config_obj['iiot_server']['rabbit_mq']['port']
 
+            self.rabbitmq_id = config_obj['iiot_server']['rabbit_mq']['id']
+            self.rabbitmq_pwd = config_obj['iiot_server']['rabbit_mq']['pwd']
+
+            self.exchange = config_obj['iiot_server']['rabbit_mq']['exchange']
+            self.exchange_type = config_obj['iiot_server']['rabbit_mq']['exchange_type']
+
+            
     def connect_redis(self,host,port):
         """
         Get connector for redis
@@ -107,7 +114,7 @@ class tcp_server:
     def get_messagequeue(self,address,port):
         '''
         If you don't have rabbitmq, you can use docker.
-        docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
+        docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e RABBITMQ_DEFAULT_PASS=whalesharkwhaleshark rabbitmq:3-management
 
         get message queue connector (rabbit mq) with address, port
         :param address: rabbit mq server ip
@@ -116,7 +123,7 @@ class tcp_server:
         '''
         channel=None
         try:
-            credentials=pika.PlainCredentials('whaleshark','whaleshark')
+            credentials=pika.PlainCredentials(self.rabbitmq_id, self.rabbitmq_pwd)
             param=pika.ConnectionParameters(address,port,'/',credentials)
             connection=pika.BlockingConnection(param)
             channel=connection.channel()
@@ -147,14 +154,12 @@ class tcp_server:
 
 
     def get_server_socket(self):
-        try:
-            server_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            server_socket.setblocking(0)
-            server_socket.bind(('',self.tcp_port))
-            server_socket.listen(1)
-            return server_socket, self.tcp_host, self.tcp_port, 1
-        except Exception as e:
-	        return server_socket, self.tcp_host, self.tcp_port, e.args[0]
+        server_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        server_socket.setblocking(0)
+        server_socket.bind(('',self.tcp_port))
+        server_socket.listen(1)
+        logging.debug('IIoT Client Ready ({ip}:{port})'.format(ip=self.tcp_host,port=self.tcp_port))
+        return server_socket
 
 
 if __name__=='__main__':
@@ -163,13 +168,11 @@ if __name__=='__main__':
         server.init_config()
         redis_con=server.get_redis_con()
         mq_channel=server.get_mq_channel()
-        server_socket, ip, port, code =server.get_server_socket()
-        redis_con.set('remote_log:iit_server_boot',json.dumps({'ip':ip,'port':port,'status':code}))
-        if code == 1:
-            msg_size=27
-            async_server=AsyncServer()
-            event_manger=asyncio.get_event_loop()
-            event_manger.run_until_complete(
+        server_socket=server.get_server_socket()
+        msg_size=27
+        async_server=AsyncServer()
+        event_manger=asyncio.get_event_loop()
+        event_manger.run_until_complete(
             async_server.get_client(event_manger,server_socket,msg_size,redis_con,mq_channel))
 
     except Exception as e:
