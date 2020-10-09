@@ -25,7 +25,7 @@ jobs:
       run: |
         python3 iiot_server.py
         python3 iiot_mqtt_agent.py
-        
+
   deploy:
     runs-on: ubuntu-latest
     steps:
