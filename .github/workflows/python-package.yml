@@ -23,8 +23,7 @@ jobs:
         python-version: '3.x'
     - name: Run python
       run: |
-        python3 iiot_server.py
-        python3 iiot_mqtt_agent.py
+        python3 whalesharkiiot_api_test.py
 
   deploy:
     runs-on: ubuntu-latest
