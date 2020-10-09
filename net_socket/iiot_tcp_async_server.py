@@ -1,15 +1,11 @@
-import asyncio
 import logging
 import sys
-import select
 import math
 import json
-import calendar
-import time
 from datetime import datetime, timedelta
 import datetime
-
-import pika
+import select
+import asyncio
 
 from net_socket.signal_killer import GracefulInterruptHandler
 
