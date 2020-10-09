@@ -1,5 +1,3 @@
-import unittest
-
 import asyncio
 import socket
 import logging

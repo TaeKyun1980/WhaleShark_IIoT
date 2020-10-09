@@ -66,8 +66,11 @@ class Tcp_server_test(unittest.TestCase):
 
 
     def test_02_hex_conversion(self):
-        packet=(2, 0, 0, 0, 0, 84, 83, 0, 1, 0, 3, 80, 86, 0, 0, 0, 0, 1, 3)
-        origian_msg = {'equipment_id': 'TS0001', 'meta': {'ip': self.server_ip, 'port': self.server_port, 'time': '2020-10-04 17:01:20', 'sensor_cd': '0003', 'fun_cd': 'PV', 'sensor_value': 0, 'decimal_point': 1}}
+        # function_value= (330).to_bytes(4, byteorder="big", signed=True)
+        # test_pv = bytearray.fromhex(function_value)
+
+        packet=(2, 0, 0, 0, 0, 84, 83, 0, 1, 0, 9, 80, 86, 0, 0, 1, 74, 1, 3)
+        origian_msg = {'equipment_id': 'TS0001', 'meta': {'ip': 'localhost', 'port': 1234, 'time': '2020-09-30 13:51:13', 'sensor_cd': '0009', 'fun_cd': 'PV', 'sensor_value': 330, 'decimal_point': 1}}
         del origian_msg['meta']['time']
         hex_stx= '{:02x}'.format(packet[0])
         hex_timestamp= '{:02x}'.format(packet[1]) + '{:02x}'.format(packet[2]) + '{:02x}'.format(packet[3]) + '{:02x}'.format(packet[4])
