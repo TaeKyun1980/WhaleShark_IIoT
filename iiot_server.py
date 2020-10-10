@@ -108,7 +108,9 @@ class tcp_server:
     def get_messagequeue(self, address, port):
         '''
         If you don't have rabbitmq, you can use docker.
-        docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
+        docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 \
+        -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e \
+        RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
 
         get message queue connector (rabbit mq) with address, port
         :param address: rabbit mq server ip
