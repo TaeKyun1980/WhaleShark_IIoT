@@ -8,7 +8,7 @@ import json
 import pika
 from net_socket.iiot_tcp_async_server import AsyncServer
 
-logging.basicConfig(stream=sys.stdout,level=logging.DEBUG)
+logging.basicConfig(stream = sys.stdout , level = logging.DEBUG)
 logging.getLogger("pika").propagate = False
 """
 grafana docker
@@ -116,11 +116,11 @@ class tcp_server:
         '''
         channel=None
         try:
-            credentials=pika.PlainCredentials(self.rabbitmq_id, self.rabbitmq_pwd)
-            param=pika.ConnectionParameters(address,port,'/',credentials)
-            connection=pika.BlockingConnection(param)
-            channel=connection.channel()
-            channel.exchange_declare(exchange='facility',exchange_type='fanout')
+            credentials = pika.PlainCredentials(self.rabbitmq_id, self.rabbitmq_pwd)
+            param = pika.ConnectionParameters(address,port,'/',credentials)
+            connection = pika.BlockingConnection(param)
+            channel = connection.channel()
+            channel.exchange_declare(exchange='facility', exchange_type='fanout')
         except Exception as e:
             logging.exception(str(e))
 
