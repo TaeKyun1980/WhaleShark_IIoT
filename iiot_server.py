@@ -146,7 +146,6 @@ class tcp_server:
     def get_mq_channel(self):
         return self.mq_channel
 
-
     def get_server_socket(self):
         server_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         server_socket.setblocking(0)
