@@ -17,7 +17,9 @@ docker run -d -p 3000:3000 grafana/grafana
 influxdb
 step1 : docker pull influxdb
 step2 :
-docker run -p 8086:8086 -v $PROJECT_PATH/WhaleShark_IIoT/config:/var/lib/influxdb influxdb -config /var/lib/influxdb/influxdb.conf -e INFLUXDB_ADMIN_USER=whaleshark -e INFLUXDB_ADMIN_PASSWORD=whaleshark
+docker run -p 8086:8086 -v $PROJECT_PATH/WhaleShark_IIoT/config:/var/lib/influxdb \
+influxdb -config /var/lib/influxdb/influxdb.conf \
+-e INFLUXDB_ADMIN_USER=whaleshark -e INFLUXDB_ADMIN_PASSWORD=whaleshark
 Please refer https://www.open-plant.com/knowledge-base/how-to-install-influxdb-docker-for-windows-10/
 """
 
