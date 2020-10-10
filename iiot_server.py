@@ -58,9 +58,9 @@ class tcp_server:
         :param port: redis access port
         :return: redis connector
         """
-        redis_obj=None
+        redis_obj = None
         try:
-            conn_params={
+            conn_params = {
                 "host":host,
                 "port":port,
             }
