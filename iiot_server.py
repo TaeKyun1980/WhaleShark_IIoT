@@ -130,13 +130,13 @@ class tcp_server:
         return channel
 
     def init_config(self):
-        self.redis_con=self.config_equip_desc(address=self.redis_host,port=self.redis_port)
-        if self.redis_con==None:
+        self.redis_con = self.config_equip_desc(address=self.redis_host, port=self.redis_port)
+        if self.redis_con is None:
             logging.error('redis configuration fail')
             sys.exit()
 
-        self.mq_channel=self.get_messagequeue(address=self.rabbitmq_host,port=self.rabbitmq_port)
-        if self.mq_channel==None:
+        self.mq_channel = self.get_messagequeue(address=self.rabbitmq_host, port=self.rabbitmq_port)
+        if self.mq_channel is None:
             logging.error('rabbitmq configuration fail')
             sys.exit()
 
