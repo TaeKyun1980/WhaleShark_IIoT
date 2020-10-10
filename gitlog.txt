@@ -1,0 +1,205 @@
+commit bbb6e1cf74cc3ff0313a08dddf632f4cc75c86fe
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Sat Oct 10 14:58:48 2020 +0900
+
+    Dockerfile
+
+commit bd3782fc7b10674a0a1d40f11c4ef63e3d798f9b
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Sat Oct 10 14:20:17 2020 +0900
+
+    drop tags
+
+commit 1771ec571c31ceafa743d7b94c9850765edf25b2
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Sat Oct 10 13:45:17 2020 +0900
+
+    python package version
+
+commit f028cd2cf708eaf8857024736facb58dbf839673
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Sat Oct 10 13:26:14 2020 +0900
+
+    disable pika debugging message, changing docker script password
+
+commit fd4d0aa84512b0139cf6a167b9fdc24d0c828b09
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 19:41:09 2020 +0900
+
+    unit test 2
+
+commit 8975f59df8f5533eac5431e625c1f4d163f938ef
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 19:40:01 2020 +0900
+
+    python app
+
+commit ee5b574d8daa27aaa2fd7ce0c6886a2c73d46fda
+Merge: 6465af3 66683b2
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 19:38:52 2020 +0900
+
+    Merge branch 'master' of https://github.com/dataignitelab/WhaleShark_IIoT
+
+commit 6465af3c145a609bd0ad84573a1c9571e95855f9
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 19:38:46 2020 +0900
+
+    unit test sample
+
+commit 66683b247ecdf7a98b54694be14ec87b0c001d1c
+Author: prismdata-dc <66061405+prismdata-dc@users.noreply.github.com>
+Date:   Fri Oct 9 19:35:53 2020 +0900
+
+    python-app.yml
+
+commit de8567e2bdfe435460a1b14e485e2ef5cfce8a5c
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 19:33:44 2020 +0900
+
+    Drop py app
+
+commit 94e0f530fe0319602a3dd27d67dd964d02eaac97
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 19:31:30 2020 +0900
+
+    remove unit test
+
+commit d5fd5c93f3c9588b4ffdb33d4110862a9887ea01
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 19:29:15 2020 +0900
+
+    drop example
+
+commit fb5cb42c78027872ce5110f5896799bea68213e2
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 19:14:53 2020 +0900
+
+    drop gateway tools
+
+commit a6d796fb9f95b98036ebcfbae76adb5b95638b2c
+Merge: a79de1e 6e3f4e5
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 19:10:39 2020 +0900
+
+    Merge branch 'master' of https://github.com/dataignitelab/WhaleShark_IIoT
+
+commit a79de1e98466076219a0dbd6271dbb94f8a8565b
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 19:09:28 2020 +0900
+
+    test
+
+commit 6e3f4e57f4ad714663d65445a1d376409c6dc427
+Author: prismdata-dc <66061405+prismdata-dc@users.noreply.github.com>
+Date:   Fri Oct 9 19:00:55 2020 +0900
+
+    python-app.yml
+
+commit edff37b8596944c45029dc88992588b8bbb2d8cc
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 18:59:04 2020 +0900
+
+    test
+
+commit ed27f2cd2e6b2a7afcc8077a910f72eee8e9e71d
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 18:56:04 2020 +0900
+
+    action test
+
+commit a9c02f7b222e4b5fdc82e8e7eb2913a9f0ea222b
+Merge: f81b0c7 582ccac
+Author: prismdata-dc <66061405+prismdata-dc@users.noreply.github.com>
+Date:   Fri Oct 9 18:35:35 2020 +0900
+
+    Merge pull request #43 from dataignitelab/feature/agent
+    
+    pip package test1
+
+commit 582ccac32dc43140761a2cafeb42c738534aba68
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Oct 9 18:34:09 2020 +0900
+
+    pip package test1
+
+commit f81b0c70ad4bbc6fd8003103c9196b012194410d
+Merge: a72088f dee937f
+Author: prismdata-dc <66061405+prismdata-dc@users.noreply.github.com>
+Date:   Thu Oct 8 15:48:24 2020 +0900
+
+    Merge pull request #40 from jook119/feature/agent
+    
+    Sharing rabbit_mq connection parameter
+
+commit dee937fe366236b21c37bf074909d8d7e052c651
+Author: ADD4SYS-JOOK\jook <jook@ADD4S.COM>
+Date:   Thu Oct 8 15:45:28 2020 +0900
+
+    Sharing rabbit_mq connection parameter
+
+commit a72088f7c8a2679f83a2d03274fb40ad9385a033
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Sun Oct 4 19:31:39 2020 +0900
+
+    New module(agent unit test)
+
+commit 89f1b247ecd0b40d8d69a90f6c5b2e48999143ad
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Sun Oct 4 19:30:08 2020 +0900
+
+    Change iiot_server error handling
+
+commit 82ac5c155e58733eab30a97b1b356d0995ef4993
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Fri Sep 18 15:05:07 2020 +0900
+
+    Field Test 09_18_15_05
+
+commit 3509a0d6de6d8d97e92f947a16b7631c2bfa4b1e
+Merge: 9dd2864 71e07c3
+Author: prismdata-dc <66061405+prismdata-dc@users.noreply.github.com>
+Date:   Wed Sep 16 17:59:08 2020 +0900
+
+    Merge pull request #39 from ljs9643/master
+    
+    계림금속 PID 온도 제어기 매뉴얼
+
+commit 9dd2864191060ffd6bb344eab630775f3410a6ae
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Wed Sep 16 12:35:41 2020 +0900
+
+    change bytes 4 to 8 for PV
+
+commit 5b851bc4f156d97de24afa9b19b45437705cb523
+Author: prismdata-dc <prismdata@add4s.com>
+Date:   Wed Sep 16 12:34:07 2020 +0900
+
+    sensor bytes
+
+commit 982c123dfce98420568ac75439b29724e2c6ab4b
+Author: prismdata-dc <66061405+prismdata-dc@users.noreply.github.com>
+Date:   Mon Sep 14 11:54:12 2020 +0900
+
+    Update README.md
+
+commit 71e07c33e7ea7f0303647e599fcb51ede0feaeb7
+Author: Lee Jaesoo <ljs9643@gmail.com>
+Date:   Sat Sep 12 20:31:32 2020 +0900
+
+    Add files via upload
+
+commit 731b234aa88784df072a9d60c1d0a89da602cb69
+Author: Lee Jaesoo <ljs9643@gmail.com>
+Date:   Sat Sep 12 20:30:40 2020 +0900
+
+    Create README.MD
+
+commit 8393fdcad0bd2c635f292dcc1cea11c7658376c7
+Merge: 1614352 06c40c4
+Author: prismdata-dc <66061405+prismdata-dc@users.noreply.github.com>
+Date:   Fri Sep 11 11:51:50 2020 +0900
+
+    Merge pull request #38 from ljs9643/master
+    
+    압력계 매뉴얼을 올립니다.

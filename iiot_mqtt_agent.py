@@ -80,7 +80,6 @@ influxdb_client = None
 def callback_mqreceive(ch, method, properties, body):
     body = body.decode('utf-8')
     facility_msg_json = json.loads(body)
-    print(facility_msg_json)
     table_name = list(facility_msg_json.keys())[0]
     fields={}
     tags = {}
