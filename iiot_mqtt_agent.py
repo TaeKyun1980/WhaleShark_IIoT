@@ -79,7 +79,7 @@ def callback_mqreceive(ch, method, properties, body):
     body = body.decode('utf-8')
     facility_msg_json = json.loads(body)
     table_name = list(facility_msg_json.keys())[0]
-    fields={}
+    fields = {}
     tags = {}
     print(facility_msg_json[table_name])
     for key in facility_msg_json[table_name].keys():
