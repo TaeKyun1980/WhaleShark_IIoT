@@ -81,10 +81,10 @@ class tcp_server:
         '''
         redis_con = None
         try:
-            redis_con = self.connect_redis(address,port)
+            redis_con = self.connect_redis(address, port)
             facilities_dict = redis_con.get('facilities_info')
 
-            if facilities_dict == None:
+            if facilities_dict is None:
                 facilities_dict = {'TS0001':{
                     '0001':'TS_VOLT1_(RS)',
                     '0002':'TS_VOLT1_(ST)',
