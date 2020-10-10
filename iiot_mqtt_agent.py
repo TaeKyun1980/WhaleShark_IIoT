@@ -43,7 +43,7 @@ def connect_influxdb(host, port, id, pwd, db):
     """
     client = None
     try:
-        client = InfluxDBClient(host=host, port=port, username=id, password=pwd, database = db)
+        client = InfluxDBClient(host=host, port=port, username=id, password=pwd, database=db)
     except Exception as e:
         logging.error(str(e))
     
