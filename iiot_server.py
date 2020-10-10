@@ -64,7 +64,7 @@ class tcp_server:
                 "host":host,
                 "port":port,
             }
-            redis_obj=redis.StrictRedis(**conn_params)
+            redis_obj = redis.StrictRedis(**conn_params)
 
         except Exception as e:
             logging.error(str(e))
