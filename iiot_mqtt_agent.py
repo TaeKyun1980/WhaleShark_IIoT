@@ -94,7 +94,7 @@ def callback_mqreceive(ch, method, properties, body):
         'fields': fields
     }]
     try:
-        if influxdb_client.write_points(influx_json) == True:
+        if influxdb_client.write_points(influx_json) is True:
             logging.debug('influx write success' + str(influx_json))
         else:
             logging.debug('influx write faile')
