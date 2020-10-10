@@ -64,7 +64,7 @@ def get_messagequeue(address, port):
     channel = None
     try:
         credentials = pika.PlainCredentials('whaleshark', 'whaleshark')
-        param = pika.ConnectionParameters(address,port, '/',credentials )
+        param = pika.ConnectionParameters(address, port, '/', credentials)
         connection = pika.BlockingConnection(param)
         channel = connection.channel()
 
