@@ -26,7 +26,7 @@ Please refer https://www.open-plant.com/knowledge-base/how-to-install-influxdb-d
 
 class tcp_server:
 
-    def __init__(self:  'tcp_server') -> 'tcp_server':
+    def __init__(self: 'tcp_server') -> 'tcp_server':
         with open('config/config_server_develop.yaml','r') as file:
             config_obj=yaml.load(file,Loader=yaml.FullLoader)
             self.tcp_host=config_obj['iiot_server']['tcp_server']['ip_address']
