@@ -72,7 +72,7 @@ class tcp_server:
 
         return redis_obj
 
-    def config_equip_desc(self,address,port):
+    def config_equip_desc(self, address, port):
         '''
         Configure redis for equipment sensor desc(sensor_cd)
         key : const sensor_cd
