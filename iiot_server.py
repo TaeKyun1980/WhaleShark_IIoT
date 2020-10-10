@@ -6,7 +6,6 @@ import yaml
 import sys
 import json
 import pika
-
 from net_socket.iiot_tcp_async_server import AsyncServer
 
 logging.basicConfig(stream=sys.stdout,level=logging.DEBUG)
@@ -72,7 +71,7 @@ class tcp_server:
 
         return redis_obj
 
-    def config_equip_desc(self,address,port,init=False):
+    def config_equip_desc(self,address,port):
         '''
         Configure redis for equipment sensor desc(sensor_cd)
         key : const sensor_cd
@@ -99,9 +98,6 @@ class tcp_server:
                     '0011':'OVER_TEMP'}
                     }
                 redis_con.set('facilities_info',json.dumps(facilities_dict))
-            else:
-                if init==True:
-                    redis_con.delete('facilities_info')
 
         except Exception as e:
             logging.error(str(e))
