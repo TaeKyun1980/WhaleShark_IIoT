@@ -98,7 +98,6 @@ def callback_mqreceive(ch, method, properties, body):
             logging.debug('influx write success' + str(influx_json))
         else:
             logging.debug('influx write faile')
-            
     except Exception as e:
         print(str(e))
 
