@@ -166,7 +166,7 @@ if __name__ == '__main__':
         async_server = AsyncServer()
         event_manger = asyncio.get_event_loop()
         event_manger.run_until_complete(
-            async_server.get_client(event_manger,server_socket,msg_size,redis_con,mq_channel))
+            async_server.get_client(event_manger, server_socket, msg_size, redis_con, mq_channel))
 
     except Exception as e:
         print(str(e))
