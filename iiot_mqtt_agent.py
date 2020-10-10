@@ -111,7 +111,7 @@ def config_facility_desc(redis_con):
 
     if facilities_dict==None:
         facilities_dict={'TS0001':{
-            '0001':'TS_VOLT1_(RS)',
+                    '0001':'TS_VOLT1_(RS)',
                     '0002':'TS_VOLT1_(ST)',
                     '0003':'TS_VOLT1_(RT)',
                     '0004':'TS_AMP1_(R)',
