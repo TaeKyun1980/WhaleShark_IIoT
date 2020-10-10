@@ -155,7 +155,7 @@ class tcp_server:
         return server_socket
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     try:
         server=tcp_server()
         server.init_config()
