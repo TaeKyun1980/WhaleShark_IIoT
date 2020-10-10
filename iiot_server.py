@@ -143,7 +143,6 @@ class tcp_server:
     def get_redis_con(self):
         return self.redis_con
 
-
     def get_mq_channel(self):
         return self.mq_channel
 
