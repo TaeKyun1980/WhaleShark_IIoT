@@ -117,10 +117,10 @@ class tcp_server:
         :param port: rabbitmq server port(AMQP)
         :return: rabbitmq connection channel
         '''
-        channel=None
+        channel = None
         try:
             credentials = pika.PlainCredentials(self.rabbitmq_id, self.rabbitmq_pwd)
-            param = pika.ConnectionParameters(address,port,'/',credentials)
+            param = pika.ConnectionParameters(address, port, '/', credentials)
             connection = pika.BlockingConnection(param)
             channel = connection.channel()
             channel.exchange_declare(exchange='facility', exchange_type='fanout')
