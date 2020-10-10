@@ -8,7 +8,7 @@ import influxdb
 from influxdb import InfluxDBClient
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-
+logging.getLogger("pika").propagate = False
 def connect_redis(host, port):
     """
     Get connector for redis
