@@ -30,10 +30,8 @@ def connect_redis(host, port):
             "port": port,
         }
         redis_obj = redis.StrictRedis(**conn_params)
-    
     except Exception as e:
         logging.error(str(e))
-    
     return redis_obj
 
 
