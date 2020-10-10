@@ -103,7 +103,7 @@ def callback_mqreceive(ch, method, properties, body):
 
 
 def config_facility_desc(redis_con):
-    facilities_dict=redis_con.get('facilities_info')
+    facilities_dict = redis_con.get('facilities_info')
 
     if facilities_dict==None:
         facilities_dict={'TS0001':{
