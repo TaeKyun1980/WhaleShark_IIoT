@@ -89,13 +89,13 @@ def callback_mqreceive(ch, method, properties, body):
         if 'time' not in key:
             tags[key]=float(facility_msg_json[table_name][key])
             fields[key]=float(facility_msg_json[table_name][key])
-        else:
-            fields[key] = facility_msg_json[table_name][key]
+        # else:
+        #     fields[key] = facility_msg_json[table_name][key]
         
     influx_json=[{
         'measurement':table_name,
-        'fields':tags,
-        'tags': tags
+        # 'tags':tags,
+        'fields':fields
     }]
     try:
         if influxdb_client.write_points(influx_json) == True:
