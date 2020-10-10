@@ -88,7 +88,7 @@ def callback_mqreceive(ch, method, properties, body):
             fields[key] = float(facility_msg_json[table_name][key])
         # else:
         #     fields[key] = facility_msg_json[table_name][key]
-    influx_json=[{
+    influx_json = [{
         'measurement':table_name,
         # 'tags':tags,
         'fields':fields
