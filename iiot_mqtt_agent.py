@@ -4,7 +4,6 @@ import json
 import pika
 import sys
 import redis
-# import influxdb
 from influxdb import InfluxDBClient
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
