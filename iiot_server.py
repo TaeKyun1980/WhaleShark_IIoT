@@ -157,7 +157,7 @@ class tcp_server:
 
 if __name__ == '__main__':
     try:
-        server=tcp_server()
+        server = tcp_server()
         server.init_config()
         redis_con = server.get_redis_con()
         mq_channel = server.get_mq_channel()
