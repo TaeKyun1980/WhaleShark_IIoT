@@ -84,8 +84,8 @@ def callback_mqreceive(ch, method, properties, body):
     print(facility_msg_json[table_name])
     for key in facility_msg_json[table_name].keys():
         if 'time' not in key:
-            tags[key]=float(facility_msg_json[table_name][key])
-            fields[key]=float(facility_msg_json[table_name][key])
+            tags[key] = float(facility_msg_json[table_name][key])
+            fields[key] = float(facility_msg_json[table_name][key])
         # else:
         #     fields[key] = facility_msg_json[table_name][key]
         
