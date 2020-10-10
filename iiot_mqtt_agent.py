@@ -89,9 +89,9 @@ def callback_mqreceive(ch, method, properties, body):
         # else:
         #     fields[key] = facility_msg_json[table_name][key]
     influx_json = [{
-        'measurement':table_name,
+        'measurement': table_name,
         # 'tags':tags,
-        'fields':fields
+        'fields': fields
     }]
     try:
         if influxdb_client.write_points(influx_json) == True:
