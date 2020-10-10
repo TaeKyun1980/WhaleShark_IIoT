@@ -62,8 +62,8 @@ class tcp_server:
         redis_obj = None
         try:
             conn_params = {
-                "host":host,
-                "port":port,
+                "host": host,
+                "port": port,
             }
             redis_obj = redis.StrictRedis(**conn_params)
 
