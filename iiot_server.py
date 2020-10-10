@@ -140,7 +140,6 @@ class tcp_server:
             logging.error('rabbitmq configuration fail')
             sys.exit()
 
-
     def get_redis_con(self):
         return self.redis_con
 
