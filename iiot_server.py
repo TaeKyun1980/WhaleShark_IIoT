@@ -44,7 +44,7 @@ class tcp_server:
             self.exchange = config_obj['iiot_server']['rabbit_mq']['exchange']
             self.exchange_type = config_obj['iiot_server']['rabbit_mq']['exchange_type']
 
-    def connect_redis(self,host,port):
+    def connect_redis(self, host, port):
         """
         Get connector for redis
         If you don't have redis, you can use redis on docker with follow steps.
