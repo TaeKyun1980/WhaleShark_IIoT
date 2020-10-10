@@ -27,16 +27,16 @@ Please refer https://www.open-plant.com/knowledge-base/how-to-install-influxdb-d
 class tcp_server:
 
     def __init__(self: 'tcp_server') -> 'tcp_server':
-        with open('config/config_server_develop.yaml','r') as file:
-            config_obj=yaml.load(file,Loader=yaml.FullLoader)
-            self.tcp_host=config_obj['iiot_server']['tcp_server']['ip_address']
-            self.tcp_port=config_obj['iiot_server']['tcp_server']['port']
+        with open('config/config_server_develop.yaml', 'r') as file:
+            config_obj = yaml.load(file,Loader=yaml.FullLoader)
+            self.tcp_host = config_obj['iiot_server']['tcp_server']['ip_address']
+            self.tcp_port = config_obj['iiot_server']['tcp_server']['port']
 
-            self.redis_host=config_obj['iiot_server']['redis_server']['ip_address']
-            self.redis_port=config_obj['iiot_server']['redis_server']['port']
+            self.redis_host = config_obj['iiot_server']['redis_server']['ip_address']
+            self.redis_port = config_obj['iiot_server']['redis_server']['port']
 
-            self.rabbitmq_host=config_obj['iiot_server']['rabbit_mq']['ip_address']
-            self.rabbitmq_port=config_obj['iiot_server']['rabbit_mq']['port']
+            self.rabbitmq_host = config_obj['iiot_server']['rabbit_mq']['ip_address']
+            self.rabbitmq_port = config_obj['iiot_server']['rabbit_mq']['port']
 
             self.rabbitmq_id = config_obj['iiot_server']['rabbit_mq']['id']
             self.rabbitmq_pwd = config_obj['iiot_server']['rabbit_mq']['pwd']
