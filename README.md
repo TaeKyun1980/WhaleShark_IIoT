@@ -24,6 +24,9 @@ WhaleShark IIoT, an open source monitoring system for smart factories, is a IIoT
 
 ## Facebook
  - [WhaleShark IIoT Facebook Group] (https://www.facebook.com/groups/whalesharkIIoT)
+ 
+## Slack
+ - [WhaleShark IIoT Slack] (https://data-centricworkspace.slack.com/archives/C018GNT7SKF)
 
 ## Contributing to WhaleShark IIoT
  - **Pull requests** require **feature branches**
