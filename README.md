@@ -1,3 +1,8 @@
+![issue badge](https://img.shields.io/github/issues/dataignitelab/WhaleShark_IIoT)
+![forks badge](https://img.shields.io/github/forks/dataignitelab/WhaleShark_IIoT)
+![starts badge](https://img.shields.io/github/stars/dataignitelab/WhaleShark_IIoT)
+![license badge](https://img.shields.io/github/license/dataignitelab/WhaleShark_IIoT)
+
 ## Abount Project: Equipment Monitor system for Smart Factory or Smart Farm
 WhaleShark IIoT, an open source monitoring system for smart factories, is a IIoT-based process monitoring system.
  - Target Object
@@ -40,6 +45,8 @@ If you need visualization engine, we will recommend Grafana.
 ## License
 Licensed under the Apache License, Version 2.0
 <br>
+Licensed under the GPS, Version 3.0
+<br>
 
-##korea
-https://github.com/prismdata/WhaleShark_IIoT/blob/master/Readme.kr.md
+## korea
+- (https://github.com/prismdata/WhaleShark_IIoT/blob/master/Readme.kr.md)
