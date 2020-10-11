@@ -7,8 +7,8 @@ assignees: ''
 
 ---
 
-## 제목
+## Title
 
-## 작업 내용
+## Work list
 
-## 주의 사항
+## Notice
