@@ -1,3 +1,8 @@
+![issue badge](https://img.shields.io/github/issues/dataignitelab/WhaleShark_IIoT)
+![forks badge](https://img.shields.io/github/forks/dataignitelab/WhaleShark_IIoT)
+![starts badge](https://img.shields.io/github/stars/dataignitelab/WhaleShark_IIoT)
+![license badge](https://img.shields.io/github/license/dataignitelab/WhaleShark_IIoT)
+
 ## Abount Project: Equipment Monitor system for Smart Factory or Smart Farm
 WhaleShark IIoT, an open source monitoring system for smart factories, is a IIoT-based process monitoring system.
  - Target Object
