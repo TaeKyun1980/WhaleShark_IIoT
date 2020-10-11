@@ -45,8 +45,6 @@ If you need visualization engine, we will recommend Grafana.
 ## License
 Licensed under the Apache License, Version 2.0
 <br>
-Licensed under the GPS, Version 3.0
-<br>
 
 ## korea
 - (https://github.com/prismdata/WhaleShark_IIoT/blob/master/Readme.kr.md)
