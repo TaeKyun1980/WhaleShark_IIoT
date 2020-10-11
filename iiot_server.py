@@ -13,7 +13,6 @@ logging.getLogger("pika").propagate = False
 """
 grafana docker
 docker run -d -p 3000:3000 grafana/grafana
-
 influxdb
 step1 : docker pull influxdb
 step2 :
@@ -21,6 +20,21 @@ docker run -p 8086:8086 -v $PROJECT_PATH/WhaleShark_IIoT/config:/var/lib/influxd
 influxdb -config /var/lib/influxdb/influxdb.conf \
 -e INFLUXDB_ADMIN_USER=whaleshark -e INFLUXDB_ADMIN_PASSWORD=whaleshark
 Please refer https://www.open-plant.com/knowledge-base/how-to-install-influxdb-docker-for-windows-10/
+
+Get connector for redis
+If you don't have redis, you can use redis on docker with follow steps.
+Getting most recent redis image
+shell
+docker pull redis
+docker run --name whaleshark-redis -d -p 6379:6379 redis
+docker run -it --link whaleshark-redis:redis --rm redis redis-cli -h redis -p 6379
+
+
+If you don't have rabbitmq, you can use docker.
+docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 \
+-p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e \
+RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
+        
 """
 
 
@@ -45,20 +59,11 @@ class tcp_server:
             self.exchange_type = config_obj['iiot_server']['rabbit_mq']['exchange_type']
 
     def connect_redis(self, host, port):
-        """
-        Get connector for redis
-        If you don't have redis, you can use redis on docker with follow steps.
-        Getting most recent redis image
-        shell: docker pull redis
-
-        docker pull redis
-        docker run --name whaleshark-redis -d -p 6379:6379 redis
-        docker run -it --link whaleshark-redis:redis --rm redis redis-cli -h redis -p 6379
-
+        '''
         :param host: redis access host ip
         :param port: redis access port
         :return: redis connector
-        """
+        '''
         redis_obj = None
         try:
             conn_params = {
@@ -107,11 +112,6 @@ class tcp_server:
 
     def get_messagequeue(self, address, port):
         '''
-        If you don't have rabbitmq, you can use docker.
-        docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 \
-        -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e \
-        RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
-
         get message queue connector (rabbit mq) with address, port
         :param address: rabbit mq server ip
         :param port: rabbitmq server port(AMQP)
