@@ -12,19 +12,11 @@
 
 #ifdef BSP_USING_ONCHIP_RTC
 
-#if 0
-#ifndef HAL_RTCEx_BKUPRead
-#define HAL_RTCEx_BKUPRead(x1, x2) (~BKUP_REG_DATA)
-#endif
-#ifndef HAL_RTCEx_BKUPWrite
-#define HAL_RTCEx_BKUPWrite(x1, x2, x3)
-#endif
 #ifndef RTC_BKP_DR1
 #define RTC_BKP_DR1 RT_NULL
 #endif
-#endif
 
-#define DRV_DEBUGx
+//#define DRV_DEBUG
 #define LOG_TAG             "drv.rtc"
 #include <drv_log.h>
 
@@ -34,11 +26,21 @@ static struct rt_device rtc;
 
 static RTC_HandleTypeDef RTC_Handler;
 
+RT_WEAK uint32_t HAL_RTCEx_BKUPRead(RTC_HandleTypeDef *hrtc, uint32_t BackupRegister)
+{
+    return (~BKUP_REG_DATA);
+}
+
+RT_WEAK void HAL_RTCEx_BKUPWrite(RTC_HandleTypeDef *hrtc, uint32_t BackupRegister, uint32_t Data)
+{
+    return;
+}
+
 static time_t get_rtc_timestamp(void)
 {
     RTC_TimeTypeDef RTC_TimeStruct = {0};
     RTC_DateTypeDef RTC_DateStruct = {0};
-    struct tm tm_new;
+    struct tm tm_new = {0};
 
     HAL_RTC_GetTime(&RTC_Handler, &RTC_TimeStruct, RTC_FORMAT_BIN);
     HAL_RTC_GetDate(&RTC_Handler, &RTC_DateStruct, RTC_FORMAT_BIN);
@@ -85,6 +87,15 @@ static rt_err_t set_rtc_time_stamp(time_t time_stamp)
 
     LOG_D("set rtc time.");
     HAL_RTCEx_BKUPWrite(&RTC_Handler, RTC_BKP_DR1, BKUP_REG_DATA);
+
+#ifdef SOC_SERIES_STM32F1
+    /* F1 series does't save year/month/date datas. so keep those datas to bkp reg */
+    HAL_RTCEx_BKUPWrite(&RTC_Handler, RTC_BKP_DR2, RTC_DateStruct.Year);
+    HAL_RTCEx_BKUPWrite(&RTC_Handler, RTC_BKP_DR3, RTC_DateStruct.Month);
+    HAL_RTCEx_BKUPWrite(&RTC_Handler, RTC_BKP_DR4, RTC_DateStruct.Date);
+    HAL_RTCEx_BKUPWrite(&RTC_Handler, RTC_BKP_DR5, RTC_DateStruct.WeekDay);
+#endif
+
     return RT_EOK;
 }
 
@@ -108,6 +119,36 @@ static void rt_rtc_init(void)
 #endif
     HAL_RCC_OscConfig(&RCC_OscInitStruct);
 }
+
+#ifdef SOC_SERIES_STM32F1
+/* update RTC_BKP_DRx*/
+static void rt_rtc_f1_bkp_update(void)
+{
+    RTC_DateTypeDef RTC_DateStruct = {0};
+
+    HAL_PWR_EnableBkUpAccess();
+    __HAL_RCC_BKP_CLK_ENABLE();
+
+    RTC_DateStruct.Year    = HAL_RTCEx_BKUPRead(&RTC_Handler, RTC_BKP_DR2);
+    RTC_DateStruct.Month   = HAL_RTCEx_BKUPRead(&RTC_Handler, RTC_BKP_DR3);
+    RTC_DateStruct.Date    = HAL_RTCEx_BKUPRead(&RTC_Handler, RTC_BKP_DR4);
+    RTC_DateStruct.WeekDay = HAL_RTCEx_BKUPRead(&RTC_Handler, RTC_BKP_DR5);
+    if (HAL_RTC_SetDate(&RTC_Handler, &RTC_DateStruct, RTC_FORMAT_BIN) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    HAL_RTC_GetDate(&RTC_Handler, &RTC_DateStruct, RTC_FORMAT_BIN);
+    if (HAL_RTCEx_BKUPRead(&RTC_Handler, RTC_BKP_DR4) != RTC_DateStruct.Date)
+    {
+        HAL_RTCEx_BKUPWrite(&RTC_Handler, RTC_BKP_DR1, BKUP_REG_DATA);
+        HAL_RTCEx_BKUPWrite(&RTC_Handler, RTC_BKP_DR2, RTC_DateStruct.Year);
+        HAL_RTCEx_BKUPWrite(&RTC_Handler, RTC_BKP_DR3, RTC_DateStruct.Month);
+        HAL_RTCEx_BKUPWrite(&RTC_Handler, RTC_BKP_DR4, RTC_DateStruct.Date);
+        HAL_RTCEx_BKUPWrite(&RTC_Handler, RTC_BKP_DR5, RTC_DateStruct.WeekDay);
+    }
+}
+#endif
 
 static rt_err_t rt_rtc_config(struct rt_device *dev)
 {
@@ -168,20 +209,21 @@ static rt_err_t rt_rtc_config(struct rt_device *dev)
             return -RT_ERROR;
         }
     }
+#ifdef SOC_SERIES_STM32F1
     else 
     {
-        LOG_I("RTC already configured.");
+        /* F1 series need update by bkp reg datas */
+        rt_rtc_f1_bkp_update();
     }
+#endif
+
     return RT_EOK;
 }
 
 static rt_err_t rt_rtc_control(rt_device_t dev, int cmd, void *args)
 {
     rt_err_t result = RT_EOK;
-    rt_uint32_t  rtc_bkid;
-    rt_bk_data_t *p_bk;
     RT_ASSERT(dev != RT_NULL);
-
     switch (cmd)
     {
     case RT_DEVICE_CTRL_RTC_GET_TIME:
@@ -195,68 +237,6 @@ static rt_err_t rt_rtc_control(rt_device_t dev, int cmd, void *args)
             result = -RT_ERROR;
         }
         LOG_D("RTC: set rtc_time %x\n", *(rt_uint32_t *)args);
-        break;
-
-    case RT_DEVICE_CTRL_RTC_GET_BKDATA:
-        p_bk = (rt_bk_data_t *)args;
-        rtc_bkid = p_bk->bk_id * 2;
-
-        if (rtc_bkid >= RTC_BKP_NUMBER)
-        {
-            result = -RT_ERROR;
-            LOG_D("RTC BK: id is too long %d\n", p_bk->bk_id);
-            break;
-        }
-
-        if (rtc_bkid <= 10)
-        {
-            p_bk->bk_data = (rt_uint32_t)(HAL_RTCEx_BKUPRead(&RTC_Handler, rtc_bkid) << 16);
-            rtc_bkid++;
-            if (rtc_bkid > 10)
-            {
-                rtc_bkid += 5;
-            }
-            p_bk->bk_data |= (rt_uint32_t)(HAL_RTCEx_BKUPRead(&RTC_Handler, rtc_bkid) & 0xffff);
-        }
-        else
-        {
-            rtc_bkid += 5;
-            p_bk->bk_data = (rt_uint32_t)(HAL_RTCEx_BKUPRead(&RTC_Handler, rtc_bkid) << 16);
-            p_bk->bk_data |= (rt_uint32_t)(HAL_RTCEx_BKUPRead(&RTC_Handler, rtc_bkid + 1) & 0xffff);
-
-        }
-        LOG_D("RTC BK: read[%d] : 0x%08x\n", p_bk->bk_id, p_bk->bk_data);
-        break;
-
-    case RT_DEVICE_CTRL_RTC_SET_BKDATA:
-        p_bk = (rt_bk_data_t *)args;
-        rtc_bkid = p_bk->bk_id * 2;
-
-        if (rtc_bkid >= RTC_BKP_NUMBER)
-        {
-            result = -RT_ERROR;
-            LOG_D("RTC BK: id is too long %d\n", p_bk->bk_id);
-            break;
-        }
-
-        if (rtc_bkid <= 10)
-        {
-            HAL_RTCEx_BKUPWrite(&RTC_Handler, rtc_bkid, (p_bk->bk_data >> 16) & 0xffff);
-            rtc_bkid++;
-            if (rtc_bkid > 10)
-            {
-                rtc_bkid += 5;
-            }
-            HAL_RTCEx_BKUPWrite(&RTC_Handler, rtc_bkid, p_bk->bk_data & 0xffff);
-        }
-        else
-        {
-            rtc_bkid += 5;
-            HAL_RTCEx_BKUPWrite(&RTC_Handler, rtc_bkid, p_bk->bk_data >> 16);
-            HAL_RTCEx_BKUPWrite(&RTC_Handler, rtc_bkid + 1, p_bk->bk_data & 0xffff);
-
-        }
-        LOG_D("RTC BK: write[%d] : 0x%08x\n", p_bk->bk_id, p_bk->bk_data);
         break;
     }
 

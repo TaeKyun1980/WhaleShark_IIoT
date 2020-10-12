@@ -33,7 +33,7 @@ void rt_hw_systick_init(void)
     HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq() / RT_TICK_PER_SECOND);
 #endif
     HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
-    HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+    NVIC_SetPriority(SysTick_IRQn, 0xFF);
 }
 
 /**
@@ -148,11 +148,6 @@ RT_WEAK void rt_hw_board_init()
     /* USART driver initialization is open by default */
 #ifdef RT_USING_SERIAL
     rt_hw_usart_init();
-#endif
-
-    /* Board underlying hardware initialization */
-#ifdef RT_USING_COMPONENTS_INIT
-    rt_components_board_init();
 #endif
 }
 

@@ -16,6 +16,7 @@ typedef struct pl_data_Info_tag {
 	rt_uint8_t valid;
 } PlDataInfo;
 
+void SetSendEvent(void);
 void SetTcpStatus(rt_uint8_t tcpOn);
 rt_uint8_t GetTcpStatus(void);
 rt_bool_t InitPlcComm(void);

@@ -2,6 +2,7 @@
  * wifi.c
  *
  */
+#include <stdlib.h>
 
 #include <rtthread.h>
 #include <config/appconfig.h>
@@ -11,7 +12,7 @@
 
 #include "wifi.h"
 
-#define WIFI_RX_BUFF	512
+#define WIFI_RX_BUFF	1024
 #define WIFI_CMD_PREFIX	"AT+"
 #define WIFI_OK			"OK"
 #define WIFI_ERROR		"ERROR"
@@ -28,8 +29,8 @@
 #define WIFI_BAUD_RATE	BAUD_RATE_115200
 #define CMD_MAX_LEN		256 //128 -> 256
 #define WIFI_MAX_LEN	64
-#define WIFI_RESP_TIMEOUT_DELAY	20000
-#define WIFI_SEND_TIMEOUT_DELAY	5000 //Send TimeOut Value
+#define WIFI_RESP_TIMEOUT_DELAY	30000
+#define WIFI_SEND_TIMEOUT_DELAY	10000
 
 // ID, COMMAND, COMMAND DESCRIPTION
 static WIFICOMMANDINFO commandInfo[] = {
@@ -64,7 +65,7 @@ typedef struct _WifiInfo
 	MqData_t mqData;
 
 	rt_device_t uport;
-	rt_event_t  rx_event;
+	rt_event_t rx_event;
 	rt_timer_t	wifiTimeoutTimer;
 	rt_timer_t	sendTimeoutTimer; //Send Tumeout Timer
 	NetworkInfoData networkInfoData;
@@ -81,8 +82,10 @@ typedef struct _WifiInfo
 	rt_uint8_t password[64];
 
 	//TCP Info
+	rt_uint8_t domainConfig;
 	rt_uint8_t remoteIp[16];
 	rt_uint16_t remotePort;
+	rt_uint8_t domain[WIFI_MAX_LEN];
 
 	rt_uint8_t txBuf[CMD_MAX_LEN];
 	rt_uint8_t rxBuf[RT_SERIAL_RB_BUFSZ];
@@ -232,7 +235,14 @@ rt_err_t SendWifiCommand(wifiCommandID id)
 	case CMD_TCP_CONNECT:
 		wifiInfo.networkInfoData.networkStatus = STATUS_TCP_CONNECT;
 		// "TCP","remote IP","remote Port"
-		len = rt_sprintf((char *)cmd,"%s%s=\"%s\",\"%s\",%d",WIFI_CMD_PREFIX,commandInfo[CMD_TCP_CONNECT].szCli,TCP,wifiInfo.remoteIp,wifiInfo.remotePort);
+		if(DISABLE == wifiInfo.domainConfig)
+		{
+			len = rt_sprintf((char *)cmd,"%s%s=\"%s\",\"%s\",%d",WIFI_CMD_PREFIX,commandInfo[CMD_TCP_CONNECT].szCli,TCP,wifiInfo.remoteIp,wifiInfo.remotePort);
+		}
+		else
+		{
+			len = rt_sprintf((char *)cmd,"%s%s=\"%s\",\"%s\",%d",WIFI_CMD_PREFIX,commandInfo[CMD_TCP_CONNECT].szCli,TCP,wifiInfo.domain,wifiInfo.remotePort);
+		}
 		break;
 	case CMD_QUERY_MAC_INFO:
 		wifiInfo.networkInfoData.networkStatus = STATUS_QUERY_MAC_INFO;
@@ -267,7 +277,7 @@ rt_err_t TcpSetDataLength(rt_uint16_t length)
 	wifiInfo.networkInfoData.networkStatus = STATUS_SET_SEND_DATA_LENGTH;
 	rt_uint8_t cmd[CMD_MAX_LEN];
 	rt_uint8_t len = 0;
-	rt_kprintf("Set Data Length: %d \r\n", length);
+	//rt_kprintf("Set Data Length: %d \r\n", length);
 	len = rt_sprintf((char *)cmd,"%s%s=%d",WIFI_CMD_PREFIX,commandInfo[CMD_SET_SEND_DATA_LENGTH].szCli,length);
 
 	cmd[len++] = CR;
@@ -282,7 +292,7 @@ rt_err_t TcpSetDataLength(rt_uint16_t length)
 
 rt_err_t TcpSendData(rt_uint8_t *pData, rt_uint16_t length)
 {
-	rt_kprintf("Start Send Data\r\n");
+	//rt_kprintf("Start Send Data\r\n");
 	rt_timer_start(wifiInfo.sendTimeoutTimer);
 	rt_memcpy(wifiInfo.txBuf,pData,length);
 	wifiInfo.txBuf[length++] = LF;
@@ -358,7 +368,6 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 				else if( 0 == rt_strncmp(SEND_DATA_OK,(char *)begin,rt_strlen(SEND_DATA_OK)))
 				{
 					pNetworkInfoData->response = RESPONSE_WIFI_OK;
-					wifiInfo.networkInfoData.networkStatus = STATUS_SEND_DATA;
 				}
 				else if(0 == rt_strncmp(SEND_DATA_FAIL,(char *)begin,rt_strlen(SEND_DATA_FAIL)))
 				{
@@ -366,7 +375,7 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 				}
 				else if( '+' == *begin++)// skip '+'
 				{
-					rt_uint8_t id = CMD_MAX;
+					rt_int8_t id = CMD_MAX;
 					rt_uint8_t szCmd[CMD_MAX_LEN];
 					rt_uint8_t len = (rt_size_t)(end-begin);
 					rt_uint8_t keepResponseLen  = wifiInfo.responseLen;
@@ -390,43 +399,51 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 					if(id < 0)
 					{
 						rt_kprintf("Invalid Command.\r\n");
+						rt_kprintf("%s\r\n",szCmd);
 					}
 					else
 					{
 						*(begin+len) = '\0';
 						rt_uint8_t *value = FindValue(begin);
+#if 0
 						if(CMD_MAX > commandInfo[id].id)
 						{
 							rt_kprintf("%s", commandInfo[id].szComment);
 						}
+#endif
 
 						switch(commandInfo[id].id)
 						{
 						case CMD_GET_MODE:
 							wifiInfo.networkInfoData.networkStatus = STATUS_GET_WIFI_MODE;
 							pNetworkInfoData->data[0]=value[0];
-								break;
+							//rt_kprintf("%s", wifiModeInfo[(value[0]-'0')].Comment);
+							break;
 						case CMD_GET_DHCP:
 							wifiInfo.networkInfoData.networkStatus = STATUS_GET_DHCP_INFO;
 							rt_memcpy(&pNetworkInfoData->data,value,rt_strlen((char *)pNetworkInfoData->data));
 							rt_uint8_t result = 0x01 & (atoi((char *)value)>>1);
 							pNetworkInfoData->data[DHCP_MODE_INFO] = result;
 							pNetworkInfoData->data[DHCP_COMPARE_RESULT] = (result == GetDhcpMode());
+							//rt_kprintf("%s", dhchInfo[result].Comment);
 							break;
-							case CMD_GET_AP_INFO:
-								rt_memcpy(&pNetworkInfoData->data,value,rt_strlen((char *)pNetworkInfoData->data));
-								switch(wifiInfo.networkInfoData.networkStatus)
-								{
-								case STATUS_CONNECT_WIFI:
-									break;
-								case STATUS_QUERY_AP_INFO:
+						case CMD_GET_AP_INFO:
+							rt_memcpy(&pNetworkInfoData->data,value,rt_strlen((char *)pNetworkInfoData->data));
+							switch(wifiInfo.networkInfoData.networkStatus)
+							{
+							case STATUS_CONNECT_WIFI:
+								//pNetworkInfoData->response = RESPONSE_WIFI_FAIL;
+								//rt_kprintf("%s", wifiErrorInfo[(value[0]-'0')].Comment);
+								break;
+							case STATUS_QUERY_AP_INFO:
+								//rt_kprintf("AP Info: %s",value);
 								pNetworkInfoData->data[DHCP_MODE_INFO] =  GetDhcpMode();
 								wifiInfo.networkInfoData.networkStatus = STATUS_GET_AP_INFO;
-									break;
-								default:
-									break;
-								}
 								break;
+							default:
+								break;
+							}
+							break;
 						case CMD_GET_LOCAL_INFO:
 							{
 								rt_memcpy(&pNetworkInfoData->data,value,rt_strlen((char *)pNetworkInfoData->data));
@@ -455,16 +472,21 @@ rt_size_t ParserWifiData(rt_uint8_t *p_base, rt_size_t rx_size, NetworkInfoData 
 							rt_memcpy(&pNetworkInfoData->data,value,rt_strlen((char *)pNetworkInfoData->data));
 							wifiInfo.networkInfoData.networkStatus = STATUS_GET_MAC_INFO;
 							break;
-						case CMD_RECEIVE_DATA: //treat the response of server
-							rt_timer_stop(wifiInfo.sendTimeoutTimer);
-							wifiInfo.networkInfoData.networkStatus = STATUS_RECEIVE_DATA;
-							if(0 == rt_strncmp((char *)value,WIFI_OK,rt_strlen(WIFI_OK)))
+						case CMD_RECEIVE_DATA:
 							{
-								pNetworkInfoData->response = RESPONSE_WIFI_OK;
-							}
-							else if(0 == rt_strncmp((char *)value,TCP_ERROR,rt_strlen(TCP_ERROR)))
-							{
-								pNetworkInfoData->response = RESPONSE_WIFI_ERROR;
+								rt_timer_stop(wifiInfo.sendTimeoutTimer);
+								uint8_t dataStatus = STATUS_NONE;
+								if(0 == rt_strncmp((char *)value,WIFI_OK,rt_strlen(WIFI_OK)))
+								{
+									pNetworkInfoData->response = RESPONSE_WIFI_OK;
+									dataStatus = STATUS_RECEIVE_DATA;
+								}
+								else if(0 == rt_strncmp((char *)value,TCP_ERROR,rt_strlen(TCP_ERROR)))
+								{
+									pNetworkInfoData->response = RESPONSE_WIFI_ERROR;
+									dataStatus = STATUS_REFUSE_DATA;
+								}
+								wifiInfo.networkInfoData.networkStatus = dataStatus;
 							}
 							break;
 						default:
@@ -577,7 +599,9 @@ void InitWifInformation(void)
 	rt_memcpy(wifiInfo.password,MakeWifiFormat(password),WIFI_MAX_LEN);
 
 	rt_memcpy(wifiInfo.remoteIp,GetTcpIp(),sizeof(wifiInfo.remoteIp));
+	rt_memcpy(wifiInfo.domain,GetDomainInfo(),sizeof(wifiInfo.domain));
 	wifiInfo.remotePort = GetTcpPort();
+	wifiInfo.domainConfig = GetDomainConfig();
 
 	wifiInfo.uport = RT_NULL;
 	wifiInfo.rx_event = RT_NULL;

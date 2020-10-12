@@ -77,35 +77,5 @@ void rt_hw_board_init()
 #ifdef RT_USING_SERIAL
     rt_hw_usart_init();
 #endif
-
-    /* Set the shell console output device */
-#ifdef RT_USING_CONSOLE
-//    rt_console_set_device(RT_CONSOLE_DEVICE_NAME);
-#endif
-
-#ifdef RT_USING_RTC
-    rt_hw_rtc_init();
-#endif
-
-    /* Board underlying hardware initialization */
-#ifdef RT_USING_COMPONENTS_INIT
-    rt_components_board_init();
-#endif
 }
-
-#if 0
-int main(void)
-{
-    /* disable interrupt first */
-    rt_hw_interrupt_disable();
-
-	/* init system setting */
-    SystemClock_Config();
-
-    /* startup RT-Thread RTOS */
-    rtthread_startup();
-
-    return 0;
-}
-#endif
 /*@}*/

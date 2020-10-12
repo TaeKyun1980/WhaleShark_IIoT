@@ -9,9 +9,9 @@
 
 #define SMSG_WIFI_OK					0x00000001 // Wifi OK
 #define SMSG_WIFI_ERROR					0x00000002 // Wifi Error
-#define SMSG_WIFI_FAIL					0x00000003 // Wifi Fail
-#define SMSG_WIFI_TIMEOUT				0x00000004 // Wifi Timeout
-#define SMSG_TCP_SEND_DATA				0x00000005 // TCP Send Data
+#define SMSG_WIFI_FAIL					0x00000004 // Wifi Fail
+#define SMSG_WIFI_TIMEOUT				0x00000008 // Wifi Timeout
+#define SMSG_TCP_SEND_DATA				0x00000010 // TCP Send Data
 
 typedef enum
 {
@@ -44,7 +44,9 @@ typedef enum
 	STATUS_GET_MAC_INFO,
 	STATUS_SET_MAC_INFO,
 	STATUS_RECEIVE_DATA,
+	STATUS_REFUSE_DATA,
 	STATUS_TCP_DISCONNECT,
+
 	STATUS_MAX
 }NetworkStatus;
 

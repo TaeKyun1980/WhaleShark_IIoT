@@ -12,7 +12,7 @@
 #include "networkmanager.h"
 
 #define TCP_BUFFER_MAX	256
-#define RETRY_MAX		3
+#define RETRY_MAX		5
 #define TCP_RESPONSE_TIMEOUT_DELAY	10000
 
 typedef struct _NetworkInfo
@@ -33,7 +33,7 @@ NetworkInfo networkInfo;
 void ResponseTimeoutTimer(void *params)
 {
 	rt_kprintf("Receive TimeOut\r\n");
-	SendWifiCommand(CMD_RESTART);
+	DeviceReboot();
 }
 
 void NetworkMangerSendMessage(MqData_t *pMqData)
@@ -61,8 +61,10 @@ void NetworkManagerThread(void *params)
 {
 	NetworkInfo *p_handle = (NetworkInfo *)params;
 	MqData_t *pMqData = RT_NULL;
+	rt_uint8_t beReboot = DISABLE;
+	rt_uint8_t ledEvent = DISABLE;
 
-	SendWifiCommand(CMD_ECHO_OFF);
+	SendWifiCommand(CMD_RESTART);
 
 	while(1)
 	{
@@ -75,13 +77,11 @@ void NetworkManagerThread(void *params)
 			switch(mqData.messge)
 			{
 			case SMSG_WIFI_OK:
-				rt_kprintf("Wi-Fi Response: OK\r\n");
 				p_handle->retryCount = 0;
 				switch(p_handle->networkInfoData.networkStatus)
 				{
 				case STATUS_WIFI_RESTART:
-					DeInitWifi();
-					DeviceReboot();
+					SendWifiCommand(CMD_ECHO_OFF);
 					break;
 				case STATUS_ECHO_OFF:
 					SendWifiCommand(CMD_SET_POWER);
@@ -114,6 +114,7 @@ void NetworkManagerThread(void *params)
 					break;
 				case STATUS_CONNECT_WIFI:
 					rt_kprintf("AP Connection Success\r\n");
+					ledEvent = ENABLE;
 					SendWifiCommand(CMD_QUERY_AP_INFO);
 					break;
 				case STATUS_GET_DHCP_INFO:
@@ -155,6 +156,7 @@ void NetworkManagerThread(void *params)
 					break;
 				case STATUS_TCP_CONNECT:
 					rt_kprintf("TCP Connection Success\r\n");
+					ledEvent = ENABLE;
 					if( DISABLE == GetTcpStatus())
 					{
 						SetTcpStatus(ENABLE);
@@ -165,18 +167,18 @@ void NetworkManagerThread(void *params)
 					TcpSendData(p_handle->tcpSendBuffer,p_handle->tcpSendLength );
 					break;
 				case STATUS_SEND_DATA:
-					rt_kprintf("Send OK. \r\n");
 					p_handle->networkInfoData.networkStatus = STATUS_WAIT_ACK;
 					rt_timer_start(p_handle->responseTimeoutTimer);
 					break;
 				case STATUS_TCP_DISCONNECT:
 					rt_kprintf("TCP Disconnection Success \r\n");
-					SendWifiCommand(CMD_RESTART);
+					SendWifiCommand(CMD_TCP_CONNECT); //TCP connect
 					break;
 				case STATUS_RECEIVE_DATA:
-					rt_kprintf("Success Sending Data. \r\n");
+					SetTcpStatus(ENABLE);
 					rt_timer_stop(p_handle->responseTimeoutTimer);
 					p_handle->networkInfoData.networkStatus = STATUS_STANDBY_SEND;
+					SetSendEvent();
 					break;
 				default:
 					break;
@@ -184,16 +186,19 @@ void NetworkManagerThread(void *params)
 				break;
 			case SMSG_WIFI_ERROR:
 				rt_kprintf("[%d]Wi-Fi Response: ERROR\r\n",p_handle->networkInfoData.networkStatus);
+				ledEvent = ENABLE;
 				switch(p_handle->networkInfoData.networkStatus)
 				{
 				case STATUS_SEND_DATA:
 					if( RETRY_MAX > p_handle->retryCount++)
 					{
+						rt_thread_delay(2000);
+						SetTcpStatus(DISABLE);
 						TcpSendData(p_handle->tcpSendBuffer,p_handle->tcpSendLength );
 					}
 					else
 					{
-						SendWifiCommand(CMD_TCP_DISCONNECT);
+						beReboot = ENABLE;
 					}
 					break;
 				case STATUS_READY_TO_SEND_DATA:
@@ -203,8 +208,22 @@ void NetworkManagerThread(void *params)
 					}
 					else
 					{
-						SendWifiCommand(CMD_TCP_DISCONNECT);
+						beReboot = ENABLE;
 					}
+					break;
+				case STATUS_TCP_CONNECT:
+					if( RETRY_MAX > p_handle->retryCount++)
+					{
+						SendWifiCommand(CMD_TCP_CONNECT); //TCP connect
+					}
+					else
+					{
+						beReboot = ENABLE;
+					}
+					break;
+				case STATUS_TCP_DISCONNECT:
+				case STATUS_REFUSE_DATA:
+					beReboot = ENABLE;
 					break;
 				default:
 					if(ENABLE == GetTcpStatus())
@@ -213,18 +232,14 @@ void NetworkManagerThread(void *params)
 					}
 					else
 					{
-						SendWifiCommand(CMD_RESTART);
-					}
-					if( RETRY_MAX > p_handle->retryCount++)
-					{
-						DeInitWifi();
-						DeviceReboot();
+						beReboot = ENABLE;
 					}
 					break;
 				}
 				break;
 			case SMSG_WIFI_FAIL:
 				rt_kprintf("[%d]Wi-Fi Response: FAIL\r\n",p_handle->networkInfoData.networkStatus);
+				ledEvent = ENABLE;
 				switch(p_handle->networkInfoData.networkStatus)
 				{
 				case STATUS_CONNECT_WIFI:
@@ -234,18 +249,13 @@ void NetworkManagerThread(void *params)
 					}
 					else
 					{
-						SendWifiCommand(CMD_RESTART);
+						beReboot = ENABLE;
 					}
 					break;
+				case STATUS_SEND_DATA:
+					beReboot = ENABLE;
+					break;
 				default:
-					if(ENABLE == GetTcpStatus())
-					{
-						SendWifiCommand(CMD_TCP_DISCONNECT);
-					}
-					else
-					{
-						SendWifiCommand(CMD_RESTART);
-					}
 					break;
 				}
 				break;
@@ -260,8 +270,7 @@ void NetworkManagerThread(void *params)
 					}
 					else
 					{
-						rt_kprintf("Restart IoT Gateway and Wi-Fi Module\r\n");
-						SendWifiCommand(CMD_RESTART);
+						beReboot = ENABLE;
 					}
 					break;
 				default:
@@ -271,7 +280,7 @@ void NetworkManagerThread(void *params)
 					}
 					else
 					{
-						SendWifiCommand(CMD_RESTART);
+						beReboot = ENABLE;
 					}
 					break;
 				}
@@ -284,6 +293,16 @@ void NetworkManagerThread(void *params)
 				break;
 			default:
 				break;
+			}
+
+			if(ENABLE == beReboot)
+			{
+				DeviceReboot();
+			}
+			else if(ENABLE == ledEvent)
+			{
+				ledEvent = DISABLE;
+				ApplicationSendMessage(&mqData);
 			}
 		}
 	}
