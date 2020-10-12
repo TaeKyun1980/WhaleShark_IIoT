@@ -4,9 +4,6 @@
  */
 #include <rtthread.h>
 #include <string.h>
-#ifdef RT_USING_FINSH
-    #include <finsh.h>
-#endif
 
 #include "usbconsole.h"
 #include "application.h"
