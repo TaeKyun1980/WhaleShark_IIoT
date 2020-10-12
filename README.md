@@ -1,3 +1,8 @@
+![issue badge](https://img.shields.io/github/issues/dataignitelab/WhaleShark_IIoT)
+![forks badge](https://img.shields.io/github/forks/dataignitelab/WhaleShark_IIoT)
+![starts badge](https://img.shields.io/github/stars/dataignitelab/WhaleShark_IIoT)
+![license badge](https://img.shields.io/github/license/dataignitelab/WhaleShark_IIoT)
+
 ## Abount Project: Equipment Monitor system for Smart Factory or Smart Farm
 WhaleShark IIoT, an open source monitoring system for smart factories, is a IIoT-based process monitoring system.
  - Target Object
@@ -5,7 +10,7 @@ WhaleShark IIoT, an open source monitoring system for smart factories, is a IIoT
    - The factory manager can monitor the status of the equipment in real time by checking the values of various sensors installed in the equipment.
 
 ## Documents
- - [Document Home] Will open in July
+ - [Document Home] Coming soon...
  
 ## Download
  - [Last Release] (https://github.com/dataignitelab/WhaleShark_IIoT)
@@ -18,19 +23,31 @@ WhaleShark IIoT, an open source monitoring system for smart factories, is a IIoT
 - TSDB agent : Insert human-readable data to TSDB(ex: InfluxDB)
 
 ## Facebook
- - [WhaleShark IIoT Facebook Group](Will open in July.)
+ - [WhaleShark IIoT Facebook Group] (https://www.facebook.com/groups/whalesharkIIoT)
+ 
+## Slack
+ - [WhaleShark IIoT Slack] (https://data-centricworkspace.slack.com/archives/C018GNT7SKF)
 
 ## Contributing to WhaleShark IIoT
  - **Pull requests** require **feature branches**
    
-## How to build and develop WhaleShart IIoT Project
-- IIoT gateway : Will use RT-Thread as RT-OS(.https://github.com/RT-Thread/rt-thread)
-- Gateway Agent : Will open in July
-- TSDB Agent : Will open in August
+## How to run
+## Prerequest:
+1. You need python3.x on Factory side, Server side
+2. Server side system needs Redis, RabbitMQ, InfluxDB
+If you need visualization engine, we will recommend Grafana.
+
+#### Factory side:
+1. Wiring the controller and the embedded computer.
+2. Check the COM Port, and run bellow command
+- IIoT gateway : python3 instrument_monitor.py
+#### Server side:
+- Gateway Agent: python3 iiot_server.py
+- TSDB Agent: python3 iiot_mqtt_agent.py
 
 ## License
 Licensed under the Apache License, Version 2.0
 <br>
 
-##korea
-https://github.com/prismdata/WhaleShark_IIoT/blob/master/Readme.kr.md
+## korea
+- (https://github.com/prismdata/WhaleShark_IIoT/blob/master/Readme.kr.md)
