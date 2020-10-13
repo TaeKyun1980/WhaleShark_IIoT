@@ -4,6 +4,7 @@
  */
 #include <rtthread.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "usbconsole.h"
 #include "application.h"
@@ -21,7 +22,8 @@ static CLIINFO s_cliInfo[] = {
 	{CLI_SSNM, "SSNM", "[Set SubnetMask]\n"},			{CLI_SGWY, "SGWY", "[Set Gateway IP]\n"},
 	{CLI_SDNS, "SDNS", "[Set DNS Server]\n"},			{CLI_STCP, "STCP", "[Set Destination IP/Port]\n"},
 	{CLI_DHCP, "DHCP", "[Set DHCP Mode]\n"},			{CLI_SSID, "SSID", "[Set Target AP SSID/Password]\n"},
-	{CLI_SMAC, "SMAC", "[Set MacAddress]\n"},           {CLI_SDEV, "SDEV", "[Set Device Type and Number]"}
+	{CLI_SMAC, "SMAC", "[Set MacAddress]\n"},           {CLI_SDEV, "SDEV", "[Set Device Type and Number]\n"},
+	{CLI_SDMC, "SDMC", "[Set IP or Domain]\n"},			{CLI_SDMI, "SDMI", "[Set Domain Information]\n"}
 };
 
 typedef struct usbconsole_data_tag {
@@ -238,6 +240,30 @@ static rt_bool_t OnSetManufacture(rt_uint8_t *pData, rt_size_t dataSize)
 	return retVal;
 }
 
+static void OnSetDomainConfig(rt_uint8_t *pData, rt_size_t dataSize)
+{
+	if( 0 < dataSize)
+	{
+		SetDomainConfig(strtoul((char *)pData, NULL, 10));
+	}
+	else
+	{
+		rt_kprintf("Get Domain Configuration: %s\r\n", (ENABLE == GetDomainConfig())?"On":"Off");
+	}
+}
+
+static void OnSetDomainInfo(rt_uint8_t *pData, rt_size_t dataSize)
+{
+	if( 0 < dataSize)
+	{
+		SetDomainInfo(pData,dataSize);
+	}
+	else
+	{
+		rt_kprintf("Get Domain Information: %s\r\n", GetDomainInfo());
+	}
+}
+
 static rt_err_t usbconsole_rx_ind(rt_device_t dev, rt_size_t size)
 {
     return rt_event_send(usbconsole_data.rx_event, SMSG_RX_DATA);
@@ -331,6 +357,12 @@ rt_size_t ParserCliCommand(rt_uint8_t *p_buff, rt_size_t rx_size)
 							case CLI_SDEV: //Set Device Info
 								OnSetDeviceInfo(begin,valLen);
 								break;
+							case CLI_SDMC:
+								OnSetDomainConfig(begin,valLen);
+								break;
+							case CLI_SDMI:
+								OnSetDomainInfo(begin,valLen);
+								break;
 							default :
 								rt_kprintf("Unknown cli command.\r\n");
 							}
@@ -360,10 +392,8 @@ static void usbconsole_rx_thread(void *params)
 	rt_size_t uRemain = 0;
     rt_uint32_t events;
 
-    rt_err_t err = rt_device_open(p_handle->uport, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_RX);
+    rt_err_t err = rt_device_set_rx_indicate(p_handle->uport, usbconsole_rx_ind);
     RT_ASSERT(err == RT_EOK);
-
-    rt_device_set_rx_indicate(p_handle->uport, usbconsole_rx_ind);
     while (1)
     {
 		if(RT_EOK == (err=rt_event_recv(p_handle->rx_event, SMSG_RX_DATA, (RT_EVENT_FLAG_OR|RT_EVENT_FLAG_CLEAR), RT_WAITING_FOREVER, &events))
@@ -405,7 +435,7 @@ rt_bool_t InitUsbconsole(void)
 
 	InitUsbconsoleData();
 
-    h_data->uport = rt_device_find("vcom");
+    h_data->uport = rt_device_find(RT_CONSOLE_DEVICE_NAME);
     RT_ASSERT(h_data->uport != RT_NULL);
 
     h_data->rx_event = rt_event_create("usbconsole_rx", RT_IPC_FLAG_FIFO);

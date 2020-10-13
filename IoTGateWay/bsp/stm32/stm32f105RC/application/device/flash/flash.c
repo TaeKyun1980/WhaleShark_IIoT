@@ -14,9 +14,11 @@ rt_bool_t FlashRead(rt_uint8_t *pData, size_t size)
 
 	if(RT_NULL != pData && 0 < size)
 	{
-		rt_int32_t i32Val = stm32_flash_read(FLASH_WATERMART_ADDRESS, pData, size);
+		rt_uint8_t buf[FLASH_PAGESIZE];
+		rt_int32_t i32Val = stm32_flash_read(FLASH_WATERMART_ADDRESS, buf, size);
 		if(0 < i32Val)
 		{
+			rt_memcpy(pData,buf,size);
 			retVal = RT_TRUE;
 		}
 		else

@@ -480,7 +480,6 @@ void HAL_RTCEx_BKUPWrite(RTC_HandleTypeDef *hrtc, uint32_t BackupRegister, uint3
 
   /* Check the parameters */
   assert_param(IS_RTC_BKP(BackupRegister));
-__HAL_RCC_BKP_CLK_ENABLE();  
 
   tmp = (uint32_t)BKP_BASE;
   tmp += (BackupRegister * 4U);

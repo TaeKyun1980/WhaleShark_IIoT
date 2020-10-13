@@ -12,7 +12,6 @@
 
 #include "application.h"
 #include "manufacture.h"
-#include <util/appwatchdog.h>
 #include <util/debug.h>
 #include <device/uart/usbconsole.h>
 #include <config/configuration.h>
@@ -20,9 +19,6 @@
 
 int main(void)
 {
-	rt_kprintf("Run %s(%s)\r\n", MODEL_NAME, PRODUCT_NAME);
-	rt_err_t err = -RT_ERROR;
-
 	if(RT_TRUE == InitUsbconsole() && RT_TRUE == InitConfiguration())
 	{
 		if(ENABLE == GetManufactureMode())
@@ -38,7 +34,7 @@ int main(void)
 		}
 	}
 
-	return err;
+	return RT_EOK;
 }
 
 

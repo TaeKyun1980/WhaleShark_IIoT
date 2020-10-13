@@ -1620,9 +1620,6 @@ static HAL_StatusTypeDef RTC_WriteTimeCounter(RTC_HandleTypeDef *hrtc, uint32_t 
 {
   HAL_StatusTypeDef status = HAL_OK;
 
-  __HAL_RCC_BKP_CLK_ENABLE(); /* jdebug */
-  __HAL_RCC_PWR_CLK_ENABLE();
-
   /* Set Initialization mode */
   if (RTC_EnterInitMode(hrtc) != HAL_OK)
   {
