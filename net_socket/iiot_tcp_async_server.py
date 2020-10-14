@@ -2,7 +2,7 @@ import logging
 import sys
 import math
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 import datetime
 import select
 import asyncio
@@ -58,11 +58,10 @@ class AsyncServer:
                 decimal_point=int('0x{:02x}'.format(byte_tuple[17]),16)
                 logging.debug('**8Byte pressure:'+str(sensor_code) + ':' + fv)
                 fv = int(fv, 16)
-                timestamp = datetime.datetime.utcnow()+ timedelta(hours=9)
-                str_hex_utc_time = str(timestamp)[0:len('2020-08-15 21:04:58')]
+                str_hex_utc_time = ((datetime.datetime.utcnow()+ timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S.%f')[:-1])
                 modbus_dict = {'equipment_id': group+group_code, 'meta': {'ip': host,
                                                                     'port': port,
-                                                                    'time': str_hex_utc_time,
+                                                                    'ms_time': str_hex_utc_time,
                                                                     'sensor_cd': sensor_code,
                                                                     'fun_cd': fn,
                                                                     'sensor_value': fv,
@@ -142,7 +141,7 @@ class AsyncServer:
                                 if equipment_id in redis_sensor_info.keys():
                                     sensor_desc = redis_sensor_info[equipment_id][sensor_code]
                                     routing_key = modbus_udp['equipment_id']
-                                    facilities_dict[equipment_key]['time']=modbus_udp['meta']['time']
+                                    facilities_dict[equipment_key]['ms_time']=modbus_udp['meta']['ms_time']
                                     pv = modbus_udp['meta']['sensor_value']
                                     decimal_point=modbus_udp['meta']['decimal_point']
                                     pv = float(pv) #* math.pow(10, float(decimal_point))
@@ -165,6 +164,7 @@ class AsyncServer:
                                         logging.debug('mqtt closed')
                                 else:
                                     acq_message = status + packet + 'no exist key\r\n'
+                                    logging.debug(acq_message)
                                     client.sendall(acq_message.encode())
                                     continue
                             acq_message = status + packet + '\r\n'
