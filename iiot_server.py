@@ -38,7 +38,7 @@ RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
 """
 
 
-class tcp_server:
+class TcpServer:
 
     def __init__(self: 'tcp_server') -> 'tcp_server':
         with open('config/config_server_develop.yaml', 'r') as file:
@@ -152,12 +152,13 @@ class tcp_server:
         server_socket.bind(('', self.tcp_port))
         server_socket.listen(1)
         logging.debug('IIoT Client Ready ({ip}:{port})'.format(ip=self.tcp_host, port=self.tcp_port))
+        self.redis_con.set('remote_log:iit_server_boot',json.dumps({'ip':self.tcp_host,'port':self.tcp_port, 'status':1}))
         return server_socket
 
 
 if __name__ == '__main__':
     try:
-        server = tcp_server()
+        server = TcpServer()
         server.init_config()
         redis_con = server.get_redis_con()
         mq_channel = server.get_mq_channel()
