@@ -23,9 +23,11 @@ client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.connect((HOST, PORT))
 #Sample packet (2, 0, 0, 0, 0, 84, 83, 0, 1, 0, 9, 80, 86, 0, 0, 1, 74, 1, 3)
 #facility_id 설비명 / 설비 ID, sensor_code : 센서에 대한 설명(iiot_server의 facilities_dict 참조)ㄴ, pv : 현재 센서 값
-packet = make_packet(facility_id='TS0001', sensor_code='0009', pv = 330)
+
+packet = make_packet(facility_id='TS0002', sensor_code='000'+str(2), pv = 330)
 print(packet)
 client_socket.send(packet.encode())
+
 
 data = client_socket.recv(1024)
 print('Received', repr(data.decode()))

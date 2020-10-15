@@ -108,23 +108,7 @@ class AsyncServer:
             msg_size            It means the packet size to be acquired at a time from the client socket.
             msg_queue           It means the queue containing the message transmitted from the gateway.
         """
-        facilities_dict = {}
-        facilities_binary = self.redis_con.get('facilities_info')
-        logging.debug(str(facilities_binary))
-        facilities_decoded = facilities_binary.decode()
-        if facilities_decoded is None:
-            logging.error('redis facilities_info is None')
-            sys.exit()
-
-        facilities_info = json.loads(facilities_decoded)
-        equipment_keys = facilities_info.keys()
-        for equipment_key in equipment_keys:
-            facilities_dict[equipment_key]={}
-            for sensor_id in  facilities_info[equipment_key].keys():
-                sensor_desc = facilities_info[equipment_key][sensor_id]
-                if sensor_desc not in facilities_dict[equipment_key].keys():
-                    facilities_dict[equipment_key][sensor_desc]=0.0
-
+        
         with GracefulInterruptHandler() as h:
             while True:
                 if not h.interrupted:
@@ -145,12 +129,18 @@ class AsyncServer:
                                 logging.debug('Queue put:' + str_modbus_udp)
                                 equipment_id = modbus_udp['equipment_id']
                                 sensor_code = modbus_udp['meta']['sensor_cd']
-
+								
+                                facilities_dict = {}
                                 redis_sensor_info = json.loads(self.redis_con.get('facilities_info'))
                                 if equipment_id in redis_sensor_info.keys():
+                                    facilities_dict[equipment_id]={'ms_time':modbus_udp['meta']['ms_time']}
+
+                                    for sensor_id in  redis_sensor_info[equipment_id].keys():
+                                        sensor_desc = redis_sensor_info[equipment_id][sensor_id]
+                                        facilities_dict[equipment_id][sensor_desc]=0.0
+								
                                     sensor_desc = redis_sensor_info[equipment_id][sensor_code]
                                     routing_key = modbus_udp['equipment_id']
-                                    facilities_dict[equipment_key]['ms_time']=modbus_udp['meta']['ms_time']
                                     pv = modbus_udp['meta']['sensor_value']
                                     decimal_point=modbus_udp['meta']['decimal_point']
                                     pv = float(pv) #* math.pow(10, float(decimal_point))
@@ -159,7 +149,8 @@ class AsyncServer:
                                     logging.debug('redis:'+'gateway_cvt set')
                                     self.redis_con.set('remote_log:modbus_udp', json.dumps(modbus_udp))
 
-                                    facilities_dict[equipment_key][sensor_desc] = modbus_udp['meta']['sensor_value']
+                                    facilities_dict[equipment_id][sensor_desc] = modbus_udp['meta']['sensor_value']
+									
                                     logging.debug('mq exchange:facility')
                                     logging.debug('mq routing_key:'+routing_key)
                                     logging.debug('mq body:'+str(json.dumps(facilities_dict)))
