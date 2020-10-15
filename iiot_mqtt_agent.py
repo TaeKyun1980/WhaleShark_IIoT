@@ -7,6 +7,7 @@ import redis
 from datetime import timedelta
 import datetime
 from influxdb import InfluxDBClient
+import time
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logging.getLogger("pika").propagate = False
@@ -83,13 +84,13 @@ def callback_mqreceive(ch, method, properties, body):
     table_name = list(facility_msg_json.keys())[0]
     fields = {}
     tags = {}
-    print(facility_msg_json[table_name])
-    str_hex_utc_time = ((datetime.datetime.utcnow() + timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S.%f')[:-1])
+    
+    me_timestamp = time.time()
     for key in facility_msg_json[table_name].keys():
         #tags[key] = float(facility_msg_json[table_name][key])
         fields[key] = float(facility_msg_json[table_name][key])
         
-    fields['me_time']: str_hex_utc_time
+    fields['me_time'] = me_timestamp
     influx_json = [{
         'measurement': table_name,
         # 'tags':tags,
