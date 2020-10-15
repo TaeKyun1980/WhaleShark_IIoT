@@ -107,7 +107,14 @@ class AsyncServer:
             msg_queue           It means the queue containing the message transmitted from the gateway.
         """
         facilities_dict = {}
-        facilities_info = json.loads(self.redis_con.get('facilities_info').decode())
+        facilities_binary = self.redis_con.get('facilities_info')
+        logging.debug(str(facilities_binary))
+        facilities_decoded = facilities_binary.decode()
+        if facilities_decoded is None:
+            logging.error('redis facilities_info is None')
+            sys.exit()
+
+        facilities_info = json.loads(facilities_decoded)
         equipment_keys = facilities_info.keys()
         for equipment_key in equipment_keys:
             facilities_dict[equipment_key]={}
