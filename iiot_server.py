@@ -8,7 +8,7 @@ import json
 import pika
 from net_socket.iiot_tcp_async_server import AsyncServer
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
 logging.getLogger("pika").propagate = False
 """
 grafana docker

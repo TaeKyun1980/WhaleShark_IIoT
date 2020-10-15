@@ -10,7 +10,7 @@ import time
 
 from net_socket.signal_killer import GracefulInterruptHandler
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
 
 class AsyncServer:
 

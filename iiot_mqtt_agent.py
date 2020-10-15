@@ -9,7 +9,7 @@ import datetime
 from influxdb import InfluxDBClient
 import time
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
 logging.getLogger("pika").propagate = False
 def connect_redis(host, port):
     """
@@ -84,7 +84,7 @@ def callback_mqreceive(ch, method, properties, body):
     table_name = list(facility_msg_json.keys())[0]
     fields = {}
     tags = {}
-    
+    logging.debug('mqtt body:'+ str(facility_msg_json))
     me_timestamp = time.time()
     for key in facility_msg_json[table_name].keys():
         #tags[key] = float(facility_msg_json[table_name][key])
