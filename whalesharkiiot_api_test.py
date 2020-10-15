@@ -41,7 +41,6 @@ class Tcp_server_test(unittest.TestCase):
 
     def test_01_hex_conversion(self):
         # packet=(2, 0, 0, 0, 0, 84, 83, 0, 1, 0, 9, 80, 86, 0, 0, 1, 74, 1, 3)
-<<<<<<< HEAD
         packet = self.make_packet(facility_id='TS0001', sensor_code='0009', pv = 330)
         origian_msg = {'equipment_id': 'TS0001', 'meta': {'ip': 'localhost', 'port': 1234, 'time': '2020-09-30 13:51:13', 'sensor_cd': '0009', 'fun_cd': 'PV', 'sensor_value': 330, 'decimal_point': 1}}
         del origian_msg['meta']['time']
@@ -63,30 +62,7 @@ class Tcp_server_test(unittest.TestCase):
         is_equal=modbus_dict == origian_msg
         print(modbus_dict)
         self.assertEqual(True, is_equal)
-=======
-        # packet = self.make_packet(facility_id='TS0001', sensor_code='0009', pv = 330)
-        # origian_msg = {'equipment_id': 'TS0001', 'meta': {'ip': 'localhost', 'port': 1234, 'time': '2020-09-30 13:51:13', 'sensor_cd': '0009', 'fun_cd': 'PV', 'sensor_value': 330, 'decimal_point': 1}}
-        # del origian_msg['meta']['time']
-        # hex_stx= '{:02x}'.format(packet[0])
-        # hex_timestamp= '{:02x}'.format(packet[1]) + '{:02x}'.format(packet[2]) + '{:02x}'.format(packet[3]) + '{:02x}'.format(packet[4])
-        # equip_name = format(ord("T"), "x")+format(ord("S"), "x")
-        # equip_id =  '{:02x}'.format(packet[7])+'{:02x}'.format(packet[8])
-        # sensor_code = '{:02x}'.format(packet[9])+'{:02x}'.format(packet[10])
-        # function_code = format(ord("P"), "x")+format(ord("V"), "x")
-        #
-        # function_value = '{:02x}'.format(packet[13])+'{:02x}'.format(packet[14])+'{:02x}'.format(
-	    #             packet[15])+'{:02x}'.format(packet[16])
-        # precision = '{:02x}'.format(packet[17])
-        # etx = '{:02x}'.format(packet[18])
-        # packet_sample= hex_stx+hex_timestamp+equip_name+equip_id+sensor_code+function_code + function_value+precision+etx
-        # packet_bytes= bytearray.fromhex(packet_sample)
-        # _, _, modbus_dict = self.asncy_server.convert_hex2decimal(packet_bytes, self.server_ip, self.server_port)
-        # del modbus_dict['meta']['time']
-        # is_equal=modbus_dict == origian_msg
-        # print(modbus_dict)
-        # self.assertEqual(True, is_equal)
-        pass
->>>>>>> 203fd568f78b28c9fc9accd9c95d3d514c22522f
+
 
 if __name__ == '__main__':
     unittest.main()
