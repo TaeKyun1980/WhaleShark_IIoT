@@ -4,7 +4,7 @@ iiot_server:
     port: 1233
 
   redis_server:
-    ip_address: 'localhost'
+    ip_address: 'onsite-monitor.xip.kr'
     port: 6379
 
   rabbit_mq:

@@ -141,7 +141,6 @@ class AsyncServer:
                                 equipment_id = modbus_udp['equipment_id']
                                 sensor_code = modbus_udp['meta']['sensor_cd']
                                 
-                                facilities_dict = {}
                                 redis_sensor_info = json.loads(self.redis_con.get('facilities_info'))
                                 if equipment_id in redis_sensor_info.keys():
                                     sensor_desc = redis_sensor_info[equipment_id][sensor_code]
@@ -156,14 +155,13 @@ class AsyncServer:
                                     logging.debug('redis:' + 'gateway_cvt set')
                                     self.redis_con.set('remote_log:modbus_udp', json.dumps(modbus_udp))
 
-                                    
                                     logging.debug('mq exchange:facility')
                                     logging.debug('mq routing_key:'+routing_key)
-                                    logging.debug('mq body:'+str(json.dumps(facilities_dict[equipment_id])))
+                                    logging.debug('mq body:'+str(json.dumps({equipment_id:facilities_dict[equipment_id]})))
                                     try:
                                         logging.debug('mqtt open')
                                         mq_channel.basic_publish(exchange='facility', routing_key=routing_key,
-                                                                 body=json.dumps(facilities_dict[equipment_id]))
+                                                                 body=json.dumps({equipment_id:facilities_dict[equipment_id]}))
 
                                         self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict[equipment_id]))
                                     except Exception as e:
