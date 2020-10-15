@@ -55,7 +55,7 @@ class AsyncServer:
                 logging.debug('function name:'+ fn)
 
                 fv='0x{:02x}'.format(byte_tuple[13])+'{:02x}'.format(byte_tuple[14])+'{:02x}'.format(
-	                byte_tuple[15])+'{:02x}'.format(byte_tuple[16])
+                    byte_tuple[15])+'{:02x}'.format(byte_tuple[16])
                 decimal_point=int('0x{:02x}'.format(byte_tuple[17]),16)
                 logging.debug('**8Byte pressure:'+str(sensor_code) + ':' + fv)
                 fv = int(fv, 16)
@@ -108,7 +108,18 @@ class AsyncServer:
             msg_size            It means the packet size to be acquired at a time from the client socket.
             msg_queue           It means the queue containing the message transmitted from the gateway.
         """
-        
+        facilities_dict={}
+        facilities_binary = self.redis_con.get('facilities_info')
+        facilities_decoded = facilities_binary.decode()
+        facilities_info = json.loads(facilities_decoded)
+        equipment_keys = facilities_info.keys()
+        for equipment_key in equipment_keys:
+            facilities_dict[equipment_key] = {}
+            for sensor_id in facilities_info[equipment_key].keys():
+                sensor_desc = facilities_info[equipment_key][sensor_id]
+                if sensor_desc not in facilities_dict[equipment_key].keys():
+                    facilities_dict[equipment_key][sensor_desc] = 0.0
+                    
         with GracefulInterruptHandler() as h:
             while True:
                 if not h.interrupted:
@@ -129,37 +140,32 @@ class AsyncServer:
                                 logging.debug('Queue put:' + str_modbus_udp)
                                 equipment_id = modbus_udp['equipment_id']
                                 sensor_code = modbus_udp['meta']['sensor_cd']
-								
+                                
                                 facilities_dict = {}
                                 redis_sensor_info = json.loads(self.redis_con.get('facilities_info'))
                                 if equipment_id in redis_sensor_info.keys():
-                                    facilities_dict[equipment_id]={'ms_time':modbus_udp['meta']['ms_time']}
-
-                                    for sensor_id in  redis_sensor_info[equipment_id].keys():
-                                        sensor_desc = redis_sensor_info[equipment_id][sensor_id]
-                                        facilities_dict[equipment_id][sensor_desc]=0.0
-								
                                     sensor_desc = redis_sensor_info[equipment_id][sensor_code]
                                     routing_key = modbus_udp['equipment_id']
+                                    facilities_dict[equipment_key]['ms_time'] = modbus_udp['meta']['ms_time']
                                     pv = modbus_udp['meta']['sensor_value']
-                                    decimal_point=modbus_udp['meta']['decimal_point']
-                                    pv = float(pv) #* math.pow(10, float(decimal_point))
-                                    decimal_point=math.pow(10, float(decimal_point))
+                                    decimal_point = modbus_udp['meta']['decimal_point']
+                                    pv = float(pv)  # * math.pow(10, float(decimal_point))
+                                    decimal_point = math.pow(10, float(decimal_point))
                                     modbus_udp['meta']['sensor_value'] = pv / decimal_point
-                                    logging.debug('redis:'+'gateway_cvt set')
+                                    facilities_dict[equipment_id][sensor_desc] = modbus_udp['meta']['sensor_value']
+                                    logging.debug('redis:' + 'gateway_cvt set')
                                     self.redis_con.set('remote_log:modbus_udp', json.dumps(modbus_udp))
 
-                                    facilities_dict[equipment_id][sensor_desc] = modbus_udp['meta']['sensor_value']
-									
+                                    
                                     logging.debug('mq exchange:facility')
                                     logging.debug('mq routing_key:'+routing_key)
-                                    logging.debug('mq body:'+str(json.dumps(facilities_dict)))
+                                    logging.debug('mq body:'+str(json.dumps(facilities_dict[equipment_id])))
                                     try:
                                         logging.debug('mqtt open')
                                         mq_channel.basic_publish(exchange='facility', routing_key=routing_key,
-                                                                 body=json.dumps(facilities_dict))
+                                                                 body=json.dumps(facilities_dict[equipment_id]))
 
-                                        self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict))
+                                        self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict[equipment_id]))
                                     except Exception as e:
                                         logging.debug('mqtt closed:'+ str(e))
                                 else:
