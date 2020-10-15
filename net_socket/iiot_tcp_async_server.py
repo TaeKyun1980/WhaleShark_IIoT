@@ -146,7 +146,7 @@ class AsyncServer:
                                 if equipment_id in redis_sensor_info.keys():
                                     sensor_desc = redis_sensor_info[equipment_id][sensor_code]
                                     routing_key = modbus_udp['equipment_id']
-                                    facilities_dict[equipment_key]['ms_time'] = modbus_udp['meta']['ms_time']
+                                    facilities_dict[equipment_id]['ms_time'] = modbus_udp['meta']['ms_time']
                                     pv = modbus_udp['meta']['sensor_value']
                                     decimal_point = modbus_udp['meta']['decimal_point']
                                     pv = float(pv)  # * math.pow(10, float(decimal_point))
