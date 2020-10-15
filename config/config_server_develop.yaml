@@ -4,7 +4,7 @@ iiot_server:
     port: 1233
 
   redis_server:
-    ip_address: '180.70.92.210'
+    ip_address: 'localhost'
     port: 6379
 
   rabbit_mq:
