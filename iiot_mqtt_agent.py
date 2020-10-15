@@ -88,7 +88,7 @@ def callback_mqreceive(ch, method, properties, body):
     me_timestamp = time.time()
     for key in facility_msg_json[table_name].keys():
         #tags[key] = float(facility_msg_json[table_name][key])
-        logging.debug('config key:'+key + 'value:'+float(facility_msg_json[table_name][key]))
+        logging.debug('config key:'+key + 'value:'+facility_msg_json[table_name][key])
         fields[key] = float(facility_msg_json[table_name][key])
         
     fields['me_time'] = me_timestamp
