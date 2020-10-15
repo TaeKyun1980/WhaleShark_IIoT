@@ -78,12 +78,12 @@ typedef struct _WifiInfo
 	rt_uint8_t dhcp;
 
 	//Wi-Fi Info
-	rt_uint8_t ssid[64];
-	rt_uint8_t password[64];
+	rt_uint8_t ssid[AP_MAX_SSID_LENGTH<<1];
+	rt_uint8_t password[AP_MAX_PASSWORD_LENGTH<<1];
 
 	//TCP Info
 	rt_uint8_t domainConfig;
-	rt_uint8_t remoteIp[16];
+	rt_uint8_t remoteIp[IP_MAX_LENGTH];
 	rt_uint16_t remotePort;
 	rt_uint8_t domain[WIFI_MAX_LEN];
 
@@ -151,7 +151,7 @@ rt_uint8_t *MakeWifiFormat(rt_uint8_t *pData)
 			{
 				end = pos++;
 			}
-			else
+			else if(0x80 > *pos)
 			{
 				rt_uint8_t buf[64];
 				end = pos;
@@ -591,12 +591,12 @@ void InitWifInformation(void)
 	wifiInfo.mode = 1; //Station
 	wifiInfo.dhcp = GetDhcpMode();
 
-	rt_uint8_t ssid[64];
-	rt_uint8_t password[64];
-	rt_memcpy(ssid,GetApSSID(),WIFI_MAX_LEN);
-	rt_memcpy(wifiInfo.ssid,MakeWifiFormat(ssid),WIFI_MAX_LEN);
-	rt_memcpy(password,GetApPassword(),WIFI_MAX_LEN);
-	rt_memcpy(wifiInfo.password,MakeWifiFormat(password),WIFI_MAX_LEN);
+	rt_uint8_t ssid[AP_MAX_SSID_LENGTH];
+	rt_uint8_t password[AP_MAX_PASSWORD_LENGTH];
+	rt_memcpy(ssid,GetApSSID(),AP_MAX_SSID_LENGTH);
+	rt_memcpy(wifiInfo.ssid,MakeWifiFormat(ssid),AP_MAX_SSID_LENGTH);
+	rt_memcpy(password,GetApPassword(),AP_MAX_PASSWORD_LENGTH);
+	rt_memcpy(wifiInfo.password,MakeWifiFormat(password),AP_MAX_PASSWORD_LENGTH);
 
 	rt_memcpy(wifiInfo.remoteIp,GetTcpIp(),sizeof(wifiInfo.remoteIp));
 	rt_memcpy(wifiInfo.domain,GetDomainInfo(),sizeof(wifiInfo.domain));

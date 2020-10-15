@@ -50,7 +50,7 @@
 #define DEFAULT_IP							"0.0.0.0"
 #define DEFAULT_MAC							"00:00:00:00:00:00"
 #define DEFAULT_DEVICE						"TS0000" //Default Device Info
-#define DEFAULT_DOMAIN						"iot.espressif.cn"
+#define DEFAULT_DOMAIN						"onsite-monitor.xip.kr"
 
 #endif /* __APPCONFIG_H__ */
 
