@@ -168,7 +168,7 @@ class AsyncServer:
 
                                         self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict))
                                     except Exception as e:
-                                        logging.debug('mqtt closed')
+                                        logging.debug('mqtt closed:', str(e))
                                 else:
                                     acq_message = status + packet + 'no exist key\r\n'
                                     logging.debug(acq_message)

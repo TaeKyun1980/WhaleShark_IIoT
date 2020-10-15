@@ -88,7 +88,6 @@ class TcpServer:
         try:
             redis_con = self.connect_redis(address, port)
             facilities_dict = redis_con.get('facilities_info')
-            logging.debug(str(facilities_dict))
             if facilities_dict is None:
                 facilities_dict = {'TS0001': {
                     '0001': 'TS_VOLT1_(RS)',
