@@ -12,12 +12,24 @@ from net_socket.signal_killer import GracefulInterruptHandler
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
 
+
+
+
+
 class AsyncServer:
 
     def convert(self, list):
         return tuple(i for i in list)
 
-
+    def publish_facility_msg(self, channel, exchange, routing_key, json_body):
+        try:
+            channel.basic_publish(exchange = exchange, routing_key=routing_key, body=json_body)
+            return json.loads(json_body)
+		
+        except Exception as e:
+            logging.exception(str(e))
+            return {'Status':str(e)}
+		
     def convert_hex2decimal(self, packet_bytes, host, port):
         """
         In the packet, the hexadecimal value is converted to a decimal value, structured in json format, and returned.
@@ -99,7 +111,36 @@ class AsyncServer:
                     server_sock.close()
                     sys.exit(0)
 
-
+    def get_fac_inf(self, redis_con):
+        fac_daq = {}
+        facilities_binary = redis_con.get('facilities_info')
+        logging.debug('redis:facilities_info'+facilities_binary)
+        facilities_decoded = facilities_binary.decode()
+        facilities_info = json.loads(facilities_decoded)
+        equipment_keys = facilities_info.keys()
+        for equipment_key in equipment_keys:
+            fac_daq[equipment_key] = {}
+            for sensor_id in facilities_info[equipment_key].keys():
+                sensor_desc = facilities_info[equipment_key][sensor_id]
+                if sensor_desc not in fac_daq[equipment_key].keys():
+                    fac_daq[equipment_key][sensor_desc] = 0.0
+        return fac_daq
+    
+    def config_fac_msg(self, equipment_id, fac_daq, modbus_udp, redis_fac_info):
+        sensor_code = modbus_udp['meta']['sensor_cd']
+        sensor_desc = redis_fac_info[equipment_id][sensor_code]
+        sensor_value = modbus_udp['meta']['sensor_value']
+        decimal_point = modbus_udp['meta']['decimal_point']
+        pv = float(sensor_value)  # * math.pow(10, float(decimal_point))
+        decimal_point = math.pow(10, float(decimal_point))
+    
+        fac_daq[equipment_id]['ms_time'] = modbus_udp['meta']['ms_time']
+        fac_daq[equipment_id][sensor_desc] = pv / decimal_point
+        logging.debug('mq exchange:facility')
+        logging.debug('mq routing_key:' + equipment_id)
+        fac_msg = json.dumps({equipment_id: fac_daq[equipment_id]})
+        return fac_msg
+    
     async def manage_client(self, event_manger, client, msg_size, mq_channel):
         """
             It receives modbus data from iiot gateway using client socket.
@@ -108,18 +149,8 @@ class AsyncServer:
             msg_size            It means the packet size to be acquired at a time from the client socket.
             msg_queue           It means the queue containing the message transmitted from the gateway.
         """
-        facilities_dict={}
-        facilities_binary = self.redis_con.get('facilities_info')
-        facilities_decoded = facilities_binary.decode()
-        facilities_info = json.loads(facilities_decoded)
-        equipment_keys = facilities_info.keys()
-        for equipment_key in equipment_keys:
-            facilities_dict[equipment_key] = {}
-            for sensor_id in facilities_info[equipment_key].keys():
-                sensor_desc = facilities_info[equipment_key][sensor_id]
-                if sensor_desc not in facilities_dict[equipment_key].keys():
-                    facilities_dict[equipment_key][sensor_desc] = 0.0
-                    
+        
+        fac_daq = self.get_fac_inf(self.redis_con)
         with GracefulInterruptHandler() as h:
             while True:
                 if not h.interrupted:
@@ -129,43 +160,25 @@ class AsyncServer:
                         logging.exception('manage client exception:'+str(e))
                         client.close()
                         break
-
                     if packet:
                         try:
                             logging.debug('try convert')
                             host,port=client.getpeername()
                             status, packet, modbus_udp = self.convert_hex2decimal(packet, host,port)
                             if status == 'OK':
-                                str_modbus_udp = str(modbus_udp)
-                                logging.debug('Queue put:' + str_modbus_udp)
                                 equipment_id = modbus_udp['equipment_id']
-                                sensor_code = modbus_udp['meta']['sensor_cd']
-                                
-                                redis_sensor_info = json.loads(self.redis_con.get('facilities_info'))
-                                if equipment_id in redis_sensor_info.keys():
-                                    sensor_desc = redis_sensor_info[equipment_id][sensor_code]
-                                    routing_key = modbus_udp['equipment_id']
-                                    facilities_dict[equipment_id]['ms_time'] = modbus_udp['meta']['ms_time']
-                                    pv = modbus_udp['meta']['sensor_value']
-                                    decimal_point = modbus_udp['meta']['decimal_point']
-                                    pv = float(pv)  # * math.pow(10, float(decimal_point))
-                                    decimal_point = math.pow(10, float(decimal_point))
-                                    modbus_udp['meta']['sensor_value'] = pv / decimal_point
-                                    facilities_dict[equipment_id][sensor_desc] = modbus_udp['meta']['sensor_value']
-                                    logging.debug('redis:' + 'gateway_cvt set')
-                                    self.redis_con.set('remote_log:modbus_udp', json.dumps(modbus_udp))
+                                redis_fac_info = json.loads(self.redis_con.get('facilities_info'))
+                                if equipment_id in redis_fac_info.keys():
+                                    fac_msg = self.config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info)
+                                    rtn_json = self.publish_facility_msg(channel=mq_channel, exchange='facility', routing_key=equipment_id,
+                                                             json_body=fac_msg)
+                                    if rtn_json == json.loads(fac_msg):
+                                        logging.debug('mq body:' + str(json.dumps({equipment_id: fac_daq[equipment_id]})))
+                                        self.redis_con.set('remote_log:mqttpubish',json.dumps(fac_daq[equipment_id]))
+                                    else:
+                                        logging.exception("MQTT Publish Excetion")
+                                        raise NameError('MQTT Publish exception')
 
-                                    logging.debug('mq exchange:facility')
-                                    logging.debug('mq routing_key:'+routing_key)
-                                    logging.debug('mq body:'+str(json.dumps({equipment_id:facilities_dict[equipment_id]})))
-                                    try:
-                                        logging.debug('mqtt open')
-                                        mq_channel.basic_publish(exchange='facility', routing_key=routing_key,
-                                                                 body=json.dumps({equipment_id:facilities_dict[equipment_id]}))
-
-                                        self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict[equipment_id]))
-                                    except Exception as e:
-                                        logging.debug('mqtt closed:'+ str(e))
                                 else:
                                     acq_message = status + packet + 'no exist key\r\n'
                                     logging.debug(acq_message)
