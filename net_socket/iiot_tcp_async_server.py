@@ -114,7 +114,6 @@ class AsyncServer:
     def get_fac_inf(self, redis_con):
         fac_daq = {}
         facilities_binary = redis_con.get('facilities_info')
-        logging.debug('redis:facilities_info'+facilities_binary)
         facilities_decoded = facilities_binary.decode()
         facilities_info = json.loads(facilities_decoded)
         equipment_keys = facilities_info.keys()
