@@ -160,13 +160,13 @@ if __name__ == '__main__':
         server = TcpServer()
         server.init_config()
         redis_con = server.get_redis_con()
-        mq_channel = server.get_mq_channel()
+        rabbit_channel = server.get_mq_channel()
         server_socket = server.get_server_socket()
         msg_size = 27
         async_server = AsyncServer()
         event_manger = asyncio.get_event_loop()
         event_manger.run_until_complete(
-            async_server.get_client(event_manger, server_socket, msg_size, redis_con, mq_channel))
+            async_server.get_client(event_manger, server_socket, msg_size, redis_con, rabbit_channel))
 
     except Exception as e:
         print(str(e))

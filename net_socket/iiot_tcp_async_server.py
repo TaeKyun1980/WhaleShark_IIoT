@@ -21,9 +21,9 @@ class AsyncServer:
     def convert(self, list):
         return tuple(i for i in list)
 
-    def publish_facility_msg(self, channel, exchange, routing_key, json_body):
+    def publish_facility_msg(self, mqtt_con, exchange_name, routing_key, json_body):
         try:
-            channel.basic_publish(exchange = exchange, routing_key=routing_key, body=json_body)
+            mqtt_con.basic_publish(exchange=exchange_name, routing_key=routing_key, body=json_body)
             return json.loads(json_body)
 		
         except Exception as e:
@@ -91,7 +91,7 @@ class AsyncServer:
         return status, str(packet_bytes), modbus_dict
 
 
-    async def get_client(self, event_manger, server_sock, msg_size,redis_con, mq_channel):
+    async def get_client(self, event_manger, server_sock, msg_size, redis_con, rabbit_channel):
         """
         It create client socket with server sockt
         event_manger        It has asyncio event loop
@@ -105,7 +105,7 @@ class AsyncServer:
             while True:
                 if not h.interrupted:
                     client, _ = await event_manger.sock_accept(server_sock)
-                    event_manger.create_task(self.manage_client(event_manger,client,msg_size,mq_channel))
+                    event_manger.create_task(self.manage_client(event_manger, client, msg_size, rabbit_channel))
                 else:
                     client.close()
                     server_sock.close()
@@ -135,12 +135,10 @@ class AsyncServer:
     
         fac_daq[equipment_id]['ms_time'] = modbus_udp['meta']['ms_time']
         fac_daq[equipment_id][sensor_desc] = pv / decimal_point
-        logging.debug('mq exchange:facility')
-        logging.debug('mq routing_key:' + equipment_id)
         fac_msg = json.dumps({equipment_id: fac_daq[equipment_id]})
         return fac_msg
     
-    async def manage_client(self, event_manger, client, msg_size, mq_channel):
+    async def manage_client(self, event_manger, client, msg_size, rabbit_channel):
         """
             It receives modbus data from iiot gateway using client socket.
             event_manger        It has asyncio event loop
@@ -156,8 +154,9 @@ class AsyncServer:
                     try:
                         packet = (await event_manger.sock_recv(client, msg_size))
                     except Exception as e:
-                        logging.exception('manage client exception:'+str(e))
                         client.close()
+                        logging.debug('Client socket close by exception:'+str(e.args))
+                        h.release()
                         break
                     if packet:
                         try:
@@ -168,14 +167,15 @@ class AsyncServer:
                                 equipment_id = modbus_udp['equipment_id']
                                 redis_fac_info = json.loads(self.redis_con.get('facilities_info'))
                                 if equipment_id in redis_fac_info.keys():
+                                    logging.debug('cofig factory message')
                                     fac_msg = self.config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info)
-                                    rtn_json = self.publish_facility_msg(channel=mq_channel, exchange='facility', routing_key=equipment_id,
-                                                             json_body=fac_msg)
+                                    logging.debug('channel is open:' + str(rabbit_channel.is_open))
+                                    rtn_json = self.publish_facility_msg(mqtt_con=rabbit_channel, exchange_name='facility', routing_key=equipment_id,
+                                                                         json_body=fac_msg)
                                     if rtn_json == json.loads(fac_msg):
                                         logging.debug('mq body:' + str(json.dumps({equipment_id: fac_daq[equipment_id]})))
-                                        self.redis_con.set('remote_log:mqttpubish',json.dumps(fac_daq[equipment_id]))
                                     else:
-                                        logging.exception("MQTT Publish Excetion")
+                                        logging.exception("MQTT Publish Excetion:"+ str(rtn_json))
                                         raise NameError('MQTT Publish exception')
 
                                 else:
