@@ -12,8 +12,94 @@ from net_socket.signal_killer import GracefulInterruptHandler
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
 
+def init_facilities_info(redis_con):
+    facilities_dict = \
+        {
+            'TS0001': {
+                '0001': 'TS_VOLT1_(RS)',
+                '0002': 'TS_VOLT1_(ST)',
+                '0003': 'TS_VOLT1_(RT)',
+                '0004': 'TS_AMP1_(R)',
+                '0005': 'TS_AMP1_(S)',
+                '0006': 'TS_AMP1_(T)',
+                '0007': 'INNER_PRESS',
+                '0008': 'PUMP_PRESS',
+                '0009': 'TEMPERATURE1(PV)',
+                '0010': 'TEMPERATURE1(SV)',
+                '0011': 'OVER_TEMP'
+            },
+            'TS0002': {
+                '0001': 'TS_VOLT1_(RS)',
+                '0002': 'TS_VOLT1_(ST)',
+                '0003': 'TS_VOLT1_(RT)',
+                '0004': 'TS_AMP1_(R)',
+                '0005': 'TS_AMP1_(S)',
+                '0006': 'TS_AMP1_(T)',
+                '0007': 'INNER_PRESS',
+                '0008': 'PUMP_PRESS',
+                '0009': 'TEMPERATURE1(PV)',
+                '0010': 'TEMPERATURE1(SV)',
+                '0011': 'OVER_TEMP'
+            },
+            'TS0003': {
+                '0001': 'TS_VOLT1_(RS)',
+                '0002': 'TS_VOLT1_(ST)',
+                '0003': 'TS_VOLT1_(RT)',
+                '0004': 'TS_AMP1_(R)',
+                '0005': 'TS_AMP1_(S)',
+                '0006': 'TS_AMP1_(T)',
+                '0007': 'INNER_PRESS',
+                '0008': 'PUMP_PRESS',
+                '0009': 'TEMPERATURE1(PV)',
+                '0010': 'TEMPERATURE1(SV)',
+                '0011': 'OVER_TEMP'
+            },
+            'TS0008': {
+                '0001': 'TS_VOLT1_(RS)',
+                '0002': 'TS_VOLT1_(ST)',
+                '0003': 'TS_VOLT1_(RT)',
+                '0004': 'TS_AMP1_(R)',
+                '0005': 'TS_AMP1_(S)',
+                '0006': 'TS_AMP1_(T)',
+                '0007': 'INNER_PRESS',
+                '0008': 'PUMP_PRESS',
+                '0009': 'TEMPERATURE1(PV)',
+                '0010': 'TEMPERATURE1(SV)',
+                '0011': 'OVER_TEMP'
+            }
+        }
+    redis_con.set('facilities_info', json.dumps(facilities_dict))
+    
+def get_fac_inf(redis_con):
+    fac_daq = {}
+    facilities_binary = redis_con.get('facilities_info')
+    if facilities_binary is None:
+        init_facilities_info(redis_con)
+        
+    facilities_decoded = facilities_binary.decode()
+    facilities_info = json.loads(facilities_decoded)
+    equipment_keys = facilities_info.keys()
+    for equipment_key in equipment_keys:
+        fac_daq[equipment_key] = {}
+        for sensor_id in facilities_info[equipment_key].keys():
+            sensor_desc = facilities_info[equipment_key][sensor_id]
+            if sensor_desc not in fac_daq[equipment_key].keys():
+                fac_daq[equipment_key][sensor_desc] = 0.0
+    return fac_daq
 
 
+def config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info):
+    sensor_code = modbus_udp['meta']['sensor_cd']
+    sensor_desc = redis_fac_info[equipment_id][sensor_code]
+    sensor_value = modbus_udp['meta']['sensor_value']
+    decimal_point = modbus_udp['meta']['decimal_point']
+    pv = float(sensor_value)  # * math.pow(10, float(decimal_point))
+    decimal_point = math.pow(10, float(decimal_point))
+
+    fac_daq[equipment_id]['ms_time'] = modbus_udp['meta']['ms_time']
+    fac_daq[equipment_id][sensor_desc] = pv / decimal_point
+    fac_msg = json.dumps({equipment_id: fac_daq[equipment_id]})
+    return fac_msg
 
 
 class AsyncServer:
@@ -111,33 +197,6 @@ class AsyncServer:
                     server_sock.close()
                     sys.exit(0)
 
-    def get_fac_inf(self, redis_con):
-        fac_daq = {}
-        facilities_binary = redis_con.get('facilities_info')
-        facilities_decoded = facilities_binary.decode()
-        facilities_info = json.loads(facilities_decoded)
-        equipment_keys = facilities_info.keys()
-        for equipment_key in equipment_keys:
-            fac_daq[equipment_key] = {}
-            for sensor_id in facilities_info[equipment_key].keys():
-                sensor_desc = facilities_info[equipment_key][sensor_id]
-                if sensor_desc not in fac_daq[equipment_key].keys():
-                    fac_daq[equipment_key][sensor_desc] = 0.0
-        return fac_daq
-    
-    def config_fac_msg(self, equipment_id, fac_daq, modbus_udp, redis_fac_info):
-        sensor_code = modbus_udp['meta']['sensor_cd']
-        sensor_desc = redis_fac_info[equipment_id][sensor_code]
-        sensor_value = modbus_udp['meta']['sensor_value']
-        decimal_point = modbus_udp['meta']['decimal_point']
-        pv = float(sensor_value)  # * math.pow(10, float(decimal_point))
-        decimal_point = math.pow(10, float(decimal_point))
-    
-        fac_daq[equipment_id]['ms_time'] = modbus_udp['meta']['ms_time']
-        fac_daq[equipment_id][sensor_desc] = pv / decimal_point
-        fac_msg = json.dumps({equipment_id: fac_daq[equipment_id]})
-        return fac_msg
-    
     async def manage_client(self, event_manger, client, msg_size, rabbit_channel):
         """
             It receives modbus data from iiot gateway using client socket.
@@ -147,7 +206,7 @@ class AsyncServer:
             msg_queue           It means the queue containing the message transmitted from the gateway.
         """
         
-        fac_daq = self.get_fac_inf(self.redis_con)
+        fac_daq = get_fac_inf(self.redis_con)
         with GracefulInterruptHandler() as h:
             while True:
                 if not h.interrupted:
@@ -168,7 +227,7 @@ class AsyncServer:
                                 redis_fac_info = json.loads(self.redis_con.get('facilities_info'))
                                 if equipment_id in redis_fac_info.keys():
                                     logging.debug('cofig factory message')
-                                    fac_msg = self.config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info)
+                                    fac_msg = config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info)
                                     logging.debug('channel is open:' + str(rabbit_channel.is_open))
                                     rtn_json = self.publish_facility_msg(mqtt_con=rabbit_channel, exchange_name='facility', routing_key=equipment_id,
                                                                          json_body=fac_msg)
