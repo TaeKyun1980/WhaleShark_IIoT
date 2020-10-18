@@ -8,15 +8,16 @@
 #ifndef __CONFIGURATION_H__
 #define __CONFIGURATION_H__
 
-#define AP_MAX_LENGTH	32
+#define AP_MAX_SSID_LENGTH	32
+#define AP_MAX_PASSWORD_LENGTH	64
 #define IP_MAX_LENGTH	16
 #define MAC_LENGTH		18
 #define MAX_DOMAIN_LENGTH	64
 
 #pragma pack(push, 1)
 typedef struct _NetworkdCofig{
-	rt_uint8_t apSSID[AP_MAX_LENGTH];
-	rt_uint8_t apPassword[AP_MAX_LENGTH];
+	rt_uint8_t apSSID[AP_MAX_SSID_LENGTH];
+	rt_uint8_t apPassword[AP_MAX_PASSWORD_LENGTH];
 
 	rt_uint8_t destIp[IP_MAX_LENGTH];
 	rt_uint16_t destPort;

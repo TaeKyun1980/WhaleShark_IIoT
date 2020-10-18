@@ -141,7 +141,7 @@ void SetApPassword(rt_uint8_t *pData, rt_size_t dataSize)
 
 	if(0 != rt_strncmp((char *)pCfg->networkdCofig.apPassword, (char *)pData, dataSize))
 	{
-		rt_memset(pCfg->networkdCofig.apPassword,0,AP_MAX_LENGTH);
+		rt_memset(pCfg->networkdCofig.apPassword,0,AP_MAX_PASSWORD_LENGTH);
 		rt_memcpy(pCfg->networkdCofig.apPassword,pData,dataSize);
 		rt_kprintf("Set Ap Password: %s\r\n", pCfg->networkdCofig.apPassword);
 		FlashWrite((rt_uint8_t *)pCfg, sizeof(Config));
@@ -159,7 +159,7 @@ void SetApSSID(rt_uint8_t *pData, rt_size_t dataSize)
 
 	if(0 != rt_strncmp((char *)pCfg->networkdCofig.apSSID, (char *)pData, dataSize))
 	{
-		rt_memset(pCfg->networkdCofig.apSSID,0,AP_MAX_LENGTH);
+		rt_memset(pCfg->networkdCofig.apSSID,0,AP_MAX_SSID_LENGTH);
 		rt_memcpy(pCfg->networkdCofig.apSSID,pData,dataSize);
 		rt_kprintf("Set Ap SSID: %s\r\n", pCfg->networkdCofig.apSSID);
 		FlashWrite((rt_uint8_t *)pCfg, sizeof(Config));
@@ -216,7 +216,7 @@ void SetDeviceInfo(rt_uint8_t *pData, rt_size_t dataSize)
 
 	if(0 != rt_strncmp((char *)pCfg->device, (char *)pData, dataSize))
 	{
-		rt_memset(pCfg->device,0,dataSize);
+		rt_memset(pCfg->device,0,sizeof(pCfg->device));
 		rt_memcpy(pCfg->device,pData,dataSize);
 		rt_kprintf("Set Device Info: %s\r\n", pCfg->device);
 		FlashWrite((rt_uint8_t *)pCfg, sizeof(Config));
@@ -271,7 +271,7 @@ void SetDomainInfo(rt_uint8_t *pData, rt_size_t dataSize)
 
 	if(0 != rt_strncmp((char *)pCfg->networkdCofig.domainInfo, (char *)pData, dataSize))
 	{
-		rt_memset(pCfg->networkdCofig.domainInfo,0,dataSize);
+		rt_memset(pCfg->networkdCofig.domainInfo,0,MAX_DOMAIN_LENGTH);
 		rt_memcpy(pCfg->networkdCofig.domainInfo,pData,dataSize);
 		rt_kprintf("Set Domain Info: %s\r\n", pCfg->networkdCofig.domainInfo);
 		FlashWrite((rt_uint8_t *)pCfg, sizeof(Config));
@@ -308,13 +308,14 @@ rt_bool_t LoadConfig(void)
 	if(RT_FALSE == retVal || WATERMARK_VALUE != pCfg->waterMark)
 	{
 		rt_kprintf("Set Factory Reset...\r\n");
+		rt_memset(pCfg,0,sizeof(Config));
 		pCfg->networkdCofig.destPort = 0;
 		pCfg->networkdCofig.dhcpMode = 1;
 		pCfg->networkdCofig.domainOn = DISABLE;
 		pCfg->waterMark = WATERMARK_VALUE;
 		pCfg->manufacture = DISABLE;
-		rt_memcpy(pCfg->networkdCofig.apSSID,DEFAULT_IP,rt_strlen(DEFAULT_SSID));
-		rt_memcpy(pCfg->networkdCofig.apPassword,DEFAULT_IP,rt_strlen(DEFAULT_PASSWORD));
+		rt_memcpy(pCfg->networkdCofig.apSSID,DEFAULT_SSID,rt_strlen(DEFAULT_SSID));
+		rt_memcpy(pCfg->networkdCofig.apPassword,DEFAULT_PASSWORD,rt_strlen(DEFAULT_PASSWORD));
 		rt_memcpy(pCfg->networkdCofig.destIp,DEFAULT_IP,rt_strlen(DEFAULT_IP));
 		rt_memcpy(pCfg->networkdCofig.dnsServer,DEFAULT_IP,rt_strlen(DEFAULT_IP));
 		rt_memcpy(pCfg->networkdCofig.gatewayIp,DEFAULT_IP,rt_strlen(DEFAULT_IP));
