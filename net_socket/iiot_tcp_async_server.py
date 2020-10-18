@@ -219,7 +219,7 @@ class AsyncServer:
             msg_queue           It means the queue containing the message transmitted from the gateway.
         """
         
-        fac_daq = get_fac_inf(self.redis_con)
+        
         with GracefulInterruptHandler() as h:
             while True:
                 if not h.interrupted:
@@ -233,6 +233,7 @@ class AsyncServer:
                     if packet:
                         try:
                             logging.debug('try convert')
+                            fac_daq = get_fac_inf(self.redis_con)
                             host, port = client.getpeername()
                             status, packet, modbus_udp = self.convert_hex2decimal(packet, host, port)
                             if status == 'OK':
