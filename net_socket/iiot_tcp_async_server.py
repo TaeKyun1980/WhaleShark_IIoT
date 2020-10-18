@@ -239,7 +239,7 @@ class AsyncServer:
                                 equipment_id = modbus_udp['equipment_id']
                                 redis_fac_info = json.loads(self.redis_con.get('facilities_info'))
                                 if equipment_id in redis_fac_info.keys():
-                                    logging.debug('cofig factory message')
+                                    logging.debug('config factory message')
                                     fac_msg = config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info)
                                     
                                     rabbit_channel, rtn_json = self.publish_facility_msg(mqtt_con=rabbit_channel,
@@ -254,7 +254,7 @@ class AsyncServer:
                                         raise NameError('MQTT Publish exception')
                                 
                                 else:
-                                    acq_message = status + packet + 'no exist key\r\n'
+                                    acq_message = status + packet + 'is not exist equipment_id key\r\n'
                                     logging.debug(acq_message)
                                     client.sendall(acq_message.encode())
                                     continue
