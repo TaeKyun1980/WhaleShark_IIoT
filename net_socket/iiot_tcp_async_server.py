@@ -8,9 +8,13 @@ import select
 import asyncio
 import time
 
+import pika
+
 from net_socket.signal_killer import GracefulInterruptHandler
 
-logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s', stream=sys.stdout, level=logging.DEBUG,
+                    datefmt='%Y-%m-%d %H:%M:%S')
+
 
 def init_facilities_info(redis_con):
     facilities_dict = \
@@ -69,13 +73,14 @@ def init_facilities_info(redis_con):
             }
         }
     redis_con.set('facilities_info', json.dumps(facilities_dict))
-    
+
+
 def get_fac_inf(redis_con):
     fac_daq = {}
     facilities_binary = redis_con.get('facilities_info')
     if facilities_binary is None:
         init_facilities_info(redis_con)
-        
+    
     facilities_decoded = facilities_binary.decode()
     facilities_info = json.loads(facilities_decoded)
     equipment_keys = facilities_info.keys()
@@ -95,7 +100,7 @@ def config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info):
     decimal_point = modbus_udp['meta']['decimal_point']
     pv = float(sensor_value)  # * math.pow(10, float(decimal_point))
     decimal_point = math.pow(10, float(decimal_point))
-
+    
     fac_daq[equipment_id]['ms_time'] = modbus_udp['meta']['ms_time']
     fac_daq[equipment_id][sensor_desc] = pv / decimal_point
     fac_msg = json.dumps({equipment_id: fac_daq[equipment_id]})
@@ -103,19 +108,28 @@ def config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info):
 
 
 class AsyncServer:
-
+    
     def convert(self, list):
         return tuple(i for i in list)
-
+    
     def publish_facility_msg(self, mqtt_con, exchange_name, routing_key, json_body):
         try:
+            logging.debug('exchange name:' + exchange_name + ' routing key:' + routing_key)
+            logging.debug('channel is open:' + str(mqtt_con.is_open))
+            if mqtt_con.is_open == False:
+                credentials = pika.PlainCredentials('whaleshark', 'whaleshark')
+                param = pika.ConnectionParameters('localhost', 5672, '/', credentials)
+                connection = pika.BlockingConnection(param)
+                mqtt_con = connection.channel()
+                mqtt_con.queue_declare(queue='facility')
+                mqtt_con.exchange_declare(exchange=exchange_name, exchange_type='fanout')
             mqtt_con.basic_publish(exchange=exchange_name, routing_key=routing_key, body=json_body)
-            return json.loads(json_body)
-		
+            return mqtt_con, json.loads(json_body)
+        
         except Exception as e:
             logging.exception(str(e))
-            return {'Status':str(e)}
-		
+            return {'Status': str(e)}
+    
     def convert_hex2decimal(self, packet_bytes, host, port):
         """
         In the packet, the hexadecimal value is converted to a decimal value, structured in json format, and returned.
@@ -133,41 +147,41 @@ class AsyncServer:
         """
         status = 'ER'
         modbus_dict = {'equipment_id': '', 'meta': {'ip': '',
-                                                             'port': '',
-                                                             'time':'' ,
-                                                             'sensor_cd':'' ,
-                                                             'fun_cd':'' ,
-                                                             'sensor_value': '',
-                                                             'decimal_point':''
-                                                             }}
+                                                    'port': '',
+                                                    'time': '',
+                                                    'sensor_cd': '',
+                                                    'fun_cd': '',
+                                                    'sensor_value': '',
+                                                    'decimal_point': ''
+                                                    }}
         try:
             byte_tuple = self.convert(list(packet_bytes))
-            logging.debug('byte message'+str(byte_tuple))
+            logging.debug('byte message' + str(byte_tuple))
             if byte_tuple[0] == 2 and (byte_tuple[16] == 3 or byte_tuple[18] == 3):
                 group = chr(byte_tuple[5]) + chr(byte_tuple[6])
                 group_code = int('0x{:02x}'.format(byte_tuple[7]) + '{:02x}'.format(byte_tuple[8]), 16)
                 group_code = '{0:04d}'.format(group_code)
                 sensor_code = int('0x{:02x}'.format(byte_tuple[9]) + '{:02x}'.format(byte_tuple[10]), 16)
                 sensor_code = '{0:04d}'.format(sensor_code)
-                fn=chr(byte_tuple[11]) +chr(byte_tuple[12])
-                logging.debug('function name:'+ fn)
-
-                fv='0x{:02x}'.format(byte_tuple[13])+'{:02x}'.format(byte_tuple[14])+'{:02x}'.format(
-                    byte_tuple[15])+'{:02x}'.format(byte_tuple[16])
-                decimal_point=int('0x{:02x}'.format(byte_tuple[17]),16)
-                logging.debug('**8Byte pressure:'+str(sensor_code) + ':' + fv)
+                fn = chr(byte_tuple[11]) + chr(byte_tuple[12])
+                logging.debug('function name:' + fn)
+                
+                fv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14]) + '{:02x}'.format(
+                    byte_tuple[15]) + '{:02x}'.format(byte_tuple[16])
+                decimal_point = int('0x{:02x}'.format(byte_tuple[17]), 16)
+                logging.debug('**8Byte pressure:' + str(sensor_code) + ':' + fv)
                 fv = int(fv, 16)
                 # str_hex_utc_time = ((datetime.datetime.utcnow()+ timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S.%f')[:-1])
                 ms_time = time.time()
-                modbus_dict = {'equipment_id': group+group_code, 'meta': {'ip': host,
-                                                                    'port': port,
-                                                                    'ms_time': ms_time,
-                                                                    'sensor_cd': sensor_code,
-                                                                    'fun_cd': fn,
-                                                                    'sensor_value': fv,
-                                                                    'decimal_point': decimal_point
-                                                                    }}
-
+                modbus_dict = {'equipment_id': group + group_code, 'meta': {'ip': host,
+                                                                            'port': port,
+                                                                            'ms_time': ms_time,
+                                                                            'sensor_cd': sensor_code,
+                                                                            'fun_cd': fn,
+                                                                            'sensor_value': fv,
+                                                                            'decimal_point': decimal_point
+                                                                            }}
+                
                 status = 'OK'
             else:
                 status = 'ER'
@@ -175,8 +189,7 @@ class AsyncServer:
             logging.exception(str(e))
         logging.debug(status + str(packet_bytes) + str(modbus_dict))
         return status, str(packet_bytes), modbus_dict
-
-
+    
     async def get_client(self, event_manger, server_sock, msg_size, redis_con, rabbit_channel):
         """
         It create client socket with server sockt
@@ -196,7 +209,7 @@ class AsyncServer:
                     client.close()
                     server_sock.close()
                     sys.exit(0)
-
+    
     async def manage_client(self, event_manger, client, msg_size, rabbit_channel):
         """
             It receives modbus data from iiot gateway using client socket.
@@ -214,36 +227,39 @@ class AsyncServer:
                         packet = (await event_manger.sock_recv(client, msg_size))
                     except Exception as e:
                         client.close()
-                        logging.debug('Client socket close by exception:'+str(e.args))
+                        logging.debug('Client socket close by exception:' + str(e.args))
                         h.release()
                         break
                     if packet:
                         try:
                             logging.debug('try convert')
-                            host,port=client.getpeername()
-                            status, packet, modbus_udp = self.convert_hex2decimal(packet, host,port)
+                            host, port = client.getpeername()
+                            status, packet, modbus_udp = self.convert_hex2decimal(packet, host, port)
                             if status == 'OK':
                                 equipment_id = modbus_udp['equipment_id']
                                 redis_fac_info = json.loads(self.redis_con.get('facilities_info'))
                                 if equipment_id in redis_fac_info.keys():
                                     logging.debug('cofig factory message')
                                     fac_msg = config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info)
-                                    logging.debug('channel is open:' + str(rabbit_channel.is_open))
-                                    rtn_json = self.publish_facility_msg(mqtt_con=rabbit_channel, exchange_name='facility', routing_key=equipment_id,
-                                                                         json_body=fac_msg)
+                                    
+                                    rabbit_channel, rtn_json = self.publish_facility_msg(mqtt_con=rabbit_channel,
+                                                                                         exchange_name='facility',
+                                                                                         routing_key=equipment_id,
+                                                                                         json_body=fac_msg)
                                     if rtn_json == json.loads(fac_msg):
-                                        logging.debug('mq body:' + str(json.dumps({equipment_id: fac_daq[equipment_id]})))
+                                        logging.debug(
+                                            'mq body:' + str(json.dumps({equipment_id: fac_daq[equipment_id]})))
                                     else:
-                                        logging.exception("MQTT Publish Excetion:"+ str(rtn_json))
+                                        logging.exception("MQTT Publish Excetion:" + str(rtn_json))
                                         raise NameError('MQTT Publish exception')
-
+                                
                                 else:
                                     acq_message = status + packet + 'no exist key\r\n'
                                     logging.debug(acq_message)
                                     client.sendall(acq_message.encode())
                                     continue
                             acq_message = status + packet + '\r\n'
-                            logging.debug('rtn:'+ acq_message)
+                            logging.debug('rtn:' + acq_message)
                             client.sendall(acq_message.encode())
                         except Exception as e:
                             client.sendall(packet.encode())
