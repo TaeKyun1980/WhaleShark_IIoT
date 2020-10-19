@@ -1,0 +1,4 @@
+[flake8]
+ignore = E226,E302,E41,W504,W605,Q000,N806,D103,D104,D106,D107,D202,D204,D400,D403,D401,I001,D208,D205,D100,D101,D102,D105,D205,D208,N802,N803,I004,I003
+exclude = static, templates, server_configuration, venv, migrations
+max-line-length = 120
