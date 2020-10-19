@@ -156,7 +156,7 @@ class AsyncServer:
                                                     }}
         try:
             byte_tuple = self.convert(list(packet_bytes))
-            logging.debug('byte message' + str(byte_tuple))
+            logging.debug('byte message\r\n' + str(byte_tuple) + '\r\n'+ packet_bytes.decode())
             if byte_tuple[0] == 2 and (byte_tuple[16] == 3 or byte_tuple[18] == 3):
                 group = chr(byte_tuple[5]) + chr(byte_tuple[6])
                 group_code = int('0x{:02x}'.format(byte_tuple[7]) + '{:02x}'.format(byte_tuple[8]), 16)
@@ -238,6 +238,7 @@ class AsyncServer:
                             status, packet, modbus_udp = self.convert_hex2decimal(packet, host, port)
                             if status == 'OK':
                                 equipment_id = modbus_udp['equipment_id']
+                                logging.debug('equipment_id:'+ equipment_id)
                                 redis_fac_info = json.loads(self.redis_con.get('facilities_info'))
                                 if equipment_id in redis_fac_info.keys():
                                     logging.debug('config factory message')
