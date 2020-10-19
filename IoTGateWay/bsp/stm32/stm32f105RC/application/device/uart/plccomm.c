@@ -156,12 +156,13 @@ rt_size_t MakeSensorValue(rt_uint16_t sensorCode, rt_uint8_t *pData, rt_size_t p
 
 	return (pos-plcCommInfo.txBuf-position);
 }
+
 //Check Sensorcode and make packet
 static rt_size_t MakeSensorPayloadData(rt_uint8_t *pData, rt_uint16_t length)
 {
 	rt_size_t size = 0;
-	rt_uint8_t 	*begin = pData;
-	rt_uint8_t 	*pos = plcCommInfo.txBuf;
+	rt_uint8_t *begin = pData;
+	rt_uint8_t *pos = plcCommInfo.txBuf;
 	rt_uint8_t *p_base = pos;
 
 	begin++;//Skip STX of PLC Data
