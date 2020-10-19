@@ -11,7 +11,7 @@ class MongoMgr:
             self.id = config_obj['iiot_server']['mongodb']['id']
             self.pwd = config_obj['iiot_server']['mongodb']['pwd']
             self.db = config_obj['iiot_server']['mongodb']['db']
-        self.mongo_client = MongoClient(self.mongo_host, username = self.id,    password = self.pwd,  authSource = self.db, authMechanism = 'SCRAM-SHA-256')
+        self.mongo_client = MongoClient(self.mongo_host, username = self.id,    password = self.pwd,  authSource = self.db, authMechanism = 'SCRAM-SHA-1')
     def mongo_conn(self):
         return self.mongo_client
     
