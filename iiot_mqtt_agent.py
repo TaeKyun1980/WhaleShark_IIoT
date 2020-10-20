@@ -4,10 +4,10 @@ import json
 import pika
 import sys
 import redis
-import influxdb
 from influxdb import InfluxDBClient
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
 
 def connect_redis(host, port):
     """
@@ -46,7 +46,7 @@ def connect_influxdb(host, port, id, pwd, db):
     """
     client = None
     try:
-        client = InfluxDBClient(host=host, port=port, username=id, password=pwd, database = db)
+        client = InfluxDBClient(host=host, port=port, username=id, password=pwd, database=db)
     except Exception as e:
         logging.error(str(e))
     
