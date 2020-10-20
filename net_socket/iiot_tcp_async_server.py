@@ -2,10 +2,6 @@ import logging
 import sys
 import math
 import json
-from datetime import timedelta
-import datetime
-import select
-import asyncio
 import time
 import pika
 import mongo_manager
@@ -119,7 +115,7 @@ class AsyncServer:
         try:
             logging.debug('exchange name:' + exchange_name + ' routing key:' + routing_key)
             logging.debug('channel is open:' + str(mqtt_con.is_open))
-            if mqtt_con.is_open == False:
+            if mqtt_con.is_open is False:
                 credentials = pika.PlainCredentials('whaleshark', 'whaleshark')
                 param = pika.ConnectionParameters('localhost', 5672, '/', credentials)
                 connection = pika.BlockingConnection(param)
