@@ -2,14 +2,8 @@ import logging
 import sys
 import math
 import json
-from datetime import timedelta
-import datetime
-import select
-import asyncio
 import time
-
 import pika
-
 from net_socket.signal_killer import GracefulInterruptHandler
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s', stream=sys.stdout, level=logging.DEBUG,
