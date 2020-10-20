@@ -9,8 +9,13 @@ import datetime
 from influxdb import InfluxDBClient
 import time
 
+import mongo_manager
+
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
 logging.getLogger("pika").propagate = False
+
+mongo_mgr = mongo_manager.MongoMgr()
+
 def connect_redis(host, port):
     """
     Get connector for redis
@@ -88,9 +93,16 @@ def callback_mqreceive(ch, method, properties, body):
     me_timestamp = time.time()
     for key in facility_msg_json[table_name].keys():
         #tags[key] = float(facility_msg_json[table_name][key])
-        logging.debug('config key:'+key + 'value:'+str(facility_msg_json[table_name][key]))
-        fields[key] = float(facility_msg_json[table_name][key])
-        
+        if key != 'pub_time':
+            logging.debug('config key:'+key + 'value:'+str(facility_msg_json[table_name][key]))
+            fields[key] = float(facility_msg_json[table_name][key])
+       
+    pub_time = facility_msg_json[table_name]['pub_time']
+    day = pub_time.split(' ')[0]#.replace('T','')
+    pub_doc = mongo_mgr.document_bykey('facility', table_name, {'DAY':day})
+    if pub_doc is not None:
+        mongo_mgr.document_upsert('facility', table_name, day, pub_time, status='CHECK')
+    
     fields['me_time'] = me_timestamp
     influx_json = [{
         'measurement': table_name,

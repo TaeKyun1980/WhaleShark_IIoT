@@ -4,6 +4,7 @@ import math
 import json
 import time
 import pika
+import mongo_manager
 from net_socket.signal_killer import GracefulInterruptHandler
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s', stream=sys.stdout, level=logging.DEBUG,
@@ -88,13 +89,14 @@ def get_fac_inf(redis_con):
 
 
 def config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info):
+    
     sensor_code = modbus_udp['meta']['sensor_cd']
     sensor_desc = redis_fac_info[equipment_id][sensor_code]
     sensor_value = modbus_udp['meta']['sensor_value']
     decimal_point = modbus_udp['meta']['decimal_point']
     pv = float(sensor_value)  # * math.pow(10, float(decimal_point))
     decimal_point = math.pow(10, float(decimal_point))
-    
+    fac_daq[equipment_id]['pub_time'] = modbus_udp['meta']['pub_time']
     fac_daq[equipment_id]['ms_time'] = modbus_udp['meta']['ms_time']
     fac_daq[equipment_id][sensor_desc] = pv / decimal_point
     fac_msg = json.dumps({equipment_id: fac_daq[equipment_id]})
@@ -103,6 +105,9 @@ def config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info):
 
 class AsyncServer:
     
+    def __init__(self):
+        self.mongo_mgr = mongo_manager.MongoMgr()
+        
     def convert(self, list):
         return tuple(i for i in list)
     
@@ -117,6 +122,7 @@ class AsyncServer:
                 mqtt_con = connection.channel()
                 mqtt_con.queue_declare(queue='facility')
                 mqtt_con.exchange_declare(exchange=exchange_name, exchange_type='fanout')
+            
             mqtt_con.basic_publish(exchange=exchange_name, routing_key=routing_key, body=json_body)
             return mqtt_con, json.loads(json_body)
         
@@ -124,6 +130,7 @@ class AsyncServer:
             logging.exception(str(e))
             return {'Status': str(e)}
     
+          
     def convert_hex2decimal(self, packet_bytes, host, port):
         """
         In the packet, the hexadecimal value is converted to a decimal value, structured in json format, and returned.
@@ -167,13 +174,20 @@ class AsyncServer:
                 fv = int(fv, 16)
                 # str_hex_utc_time = ((datetime.datetime.utcnow()+ timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S.%f')[:-1])
                 ms_time = time.time()
+                pub_time = datetime.datetime.fromtimestamp(time.time())
+                mongo_db_name = 'facility'
+                collection = group + group_code
+                doc_key = '%s-%s-%s'%(pub_time.year, pub_time.month, pub_time.day)
+                pub_time = str(pub_time).replace('.', 'ms')
+                self.mongo_mgr.document_upsert(mongo_db_name, collection, doc_key, pub_time)
                 modbus_dict = {'equipment_id': group + group_code, 'meta': {'ip': host,
                                                                             'port': port,
                                                                             'ms_time': ms_time,
                                                                             'sensor_cd': sensor_code,
                                                                             'fun_cd': fn,
                                                                             'sensor_value': fv,
-                                                                            'decimal_point': decimal_point
+                                                                            'decimal_point': decimal_point,
+                                                                            'pub_time':str(pub_time)
                                                                             }}
                 
                 status = 'OK'
@@ -212,8 +226,8 @@ class AsyncServer:
             msg_size            It means the packet size to be acquired at a time from the client socket.
             msg_queue           It means the queue containing the message transmitted from the gateway.
         """
-        
-        
+
+        fac_daq = get_fac_inf(self.redis_con)
         with GracefulInterruptHandler() as h:
             while True:
                 if not h.interrupted:
@@ -227,7 +241,6 @@ class AsyncServer:
                     if packet:
                         try:
                             logging.debug('try convert')
-                            fac_daq = get_fac_inf(self.redis_con)
                             host, port = client.getpeername()
                             status, packet, modbus_udp = self.convert_hex2decimal(packet, host, port)
                             if status == 'OK':
