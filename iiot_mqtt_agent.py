@@ -6,7 +6,7 @@ import sys
 import redis
 from influxdb import InfluxDBClient
 import time
-from WhaleShark_IIoT import mongo_manager
+import mongo_manager
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
@@ -37,27 +37,30 @@ def connect_redis(host, port):
             "port": port,
         }
         redis_obj = redis.StrictRedis(**conn_params)
-    except Exception as e:
-        logging.error(str(e))
+    except Exception as exp:
+        logging.error(str(exp))
     return redis_obj
 
 
-def con_influxdb(host, port, id, pwd, db):
+def con_influxdb(host, port, name, pwd, db):
     """
     :param host: InfluxDB access host ip
     :param port: InfluxDB access port
+    :param name: InfluxDB access user name
+    :param pwd: InfluxDB access user password
+    :param db: Database to access
     :return: InfluxDB connector
     """
     client = None
     try:
-        client = InfluxDBClient(host=host, port=port, username=id, password=pwd, database=db)
-    except Exception as e:
-        logging.error(str(e))
+        client = InfluxDBClient(host=host, port=port, username=name, password=pwd, database=db)
+    except Exception as exp:
+        logging.error(str(exp))
     return client
 
 
 def get_messagequeue(address, port):
-    '''
+    """
     If you don't have rabbitmq, you can use docker.
     docker run -d --hostname whaleshark --name whaleshark-rabbit \
     -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark \
@@ -67,7 +70,7 @@ def get_messagequeue(address, port):
     :param address: rabbit mq server ip
     :param port: rabbitmq server port(AMQP)
     :return: rabbitmq connection channel
-    '''
+    """
     channel = None
     try:
         credentials = pika.PlainCredentials('whaleshark', 'whaleshark')
@@ -75,8 +78,8 @@ def get_messagequeue(address, port):
         connection = pika.BlockingConnection(param)
         channel = connection.channel()
 
-    except Exception as e:
-        logging.exception(str(e))
+    except Exception as exp:
+        logging.exception(str(exp))
 
     return channel
 
@@ -113,8 +116,8 @@ def callback_mqreceive(ch, method, properties, body):
             logging.debug('influx write success:' + str(influx_json))
         else:
             logging.debug('influx write faile:' + str(influx_json))
-    except Exception as e:
-        print(str(e))
+    except Exception as exp:
+        print(str(exp))
 
 
 def config_facility_desc(redis_con):
@@ -153,7 +156,7 @@ if __name__ == '__main__':
         influx_pwd = config_obj['iiot_server']['influxdb']['pwd']
         influx_db = config_obj['iiot_server']['influxdb']['db']
     
-    influxdb_client = con_influxdb(host=influx_host, port=influx_port, id=influx_id, pwd=influx_pwd, db=influx_db)
+    influxdb_client = con_influxdb(host=influx_host, port=influx_port, name=influx_id, pwd=influx_pwd, db=influx_db)
     if influxdb_client is None:
         logging.error('influxdb configuration fail')
         
@@ -168,7 +171,7 @@ if __name__ == '__main__':
         result = mq_channel.queue_declare(queue=facility, exclusive=True)
         queue_name = result.method.queue
         mq_channel.queue_bind(exchange='facility', queue=queue_name)
-        call_back_arg = {'measurement':queue_name}
+        call_back_arg = {'measurement': queue_name}
         try:
             mq_channel.basic_consume(queue_name, on_message_callback=callback_mqreceive)
         except Exception as e:
