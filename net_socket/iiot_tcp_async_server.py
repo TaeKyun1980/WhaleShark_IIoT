@@ -3,7 +3,7 @@ import sys
 import math
 import json
 import time
-from datetime import timedelta, datetime
+from datetime import datetime
 import pika
 import mongo_manager
 from net_socket.signal_killer import GracefulInterruptHandler
@@ -177,7 +177,7 @@ class AsyncServer:
                 pub_time = datetime.fromtimestamp(time.time())
                 mongo_db_name = 'facility'
                 collection = group + group_code
-                doc_key = '%s-%s-%s'%(pub_time.year, pub_time.month, pub_time.day)
+                doc_key = '%s-%s-%s' % (pub_time.year, pub_time.month, pub_time.day)
                 pub_time = str(pub_time).replace('.', 'ms')
                 self.mongo_mgr.document_upsert(mongo_db_name, collection, doc_key, pub_time)
                 modbus_dict = {'equipment_id': group + group_code, 'meta': {'ip': host,
@@ -187,7 +187,7 @@ class AsyncServer:
                                                                             'fun_cd': fn,
                                                                             'sensor_value': fv,
                                                                             'decimal_point': decimal_point,
-                                                                            'pub_time':str(pub_time)
+                                                                            'pub_time': str(pub_time)
                                                                             }}
                 
                 status = 'OK'
@@ -245,7 +245,7 @@ class AsyncServer:
                             status, packet, modbus_udp = self.convert_hex2decimal(packet, host, port)
                             if status == 'OK':
                                 equipment_id = modbus_udp['equipment_id']
-                                logging.debug('equipment_id:'+ equipment_id)
+                                logging.debug('equipment_id:' + equipment_id)
                                 redis_fac_info = json.loads(self.redis_con.get('facilities_info'))
                                 if equipment_id in redis_fac_info.keys():
                                     logging.debug('config factory message')
