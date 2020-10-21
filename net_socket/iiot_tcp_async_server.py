@@ -3,6 +3,7 @@ import sys
 import math
 import json
 import time
+from datetime import timedelta, datetime
 import pika
 import mongo_manager
 from net_socket.signal_killer import GracefulInterruptHandler
@@ -130,7 +131,6 @@ class AsyncServer:
             logging.exception(str(e))
             return {'Status': str(e)}
     
-          
     def convert_hex2decimal(self, packet_bytes, host, port):
         """
         In the packet, the hexadecimal value is converted to a decimal value, structured in json format, and returned.
@@ -172,9 +172,9 @@ class AsyncServer:
                 decimal_point = int('0x{:02x}'.format(byte_tuple[17]), 16)
                 logging.debug('**8Byte pressure:' + str(sensor_code) + ':' + fv)
                 fv = int(fv, 16)
-                # str_hex_utc_time = ((datetime.datetime.utcnow()+ timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S.%f')[:-1])
+                
                 ms_time = time.time()
-                pub_time = datetime.datetime.fromtimestamp(time.time())
+                pub_time = datetime.fromtimestamp(time.time())
                 mongo_db_name = 'facility'
                 collection = group + group_code
                 doc_key = '%s-%s-%s'%(pub_time.year, pub_time.month, pub_time.day)
