@@ -1,27 +1,137 @@
-import asyncio
 import logging
 import sys
-import select
 import math
 import json
-import calendar
 import time
-from datetime import datetime, timedelta
-import datetime
-
 import pika
-
+import mongo_manager
 from net_socket.signal_killer import GracefulInterruptHandler
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s', stream=sys.stdout, level=logging.DEBUG,
+                    datefmt='%Y-%m-%d %H:%M:%S')
+
+
+def init_facilities_info(redis_con):
+    facilities_dict = \
+        {
+            'TS0001': {
+                '0001': 'TS_VOLT1_(RS)',
+                '0002': 'TS_VOLT1_(ST)',
+                '0003': 'TS_VOLT1_(RT)',
+                '0004': 'TS_AMP1_(R)',
+                '0005': 'TS_AMP1_(S)',
+                '0006': 'TS_AMP1_(T)',
+                '0007': 'INNER_PRESS',
+                '0008': 'PUMP_PRESS',
+                '0009': 'TEMPERATURE1(PV)',
+                '0010': 'TEMPERATURE1(SV)',
+                '0011': 'OVER_TEMP'
+            },
+            'TS0002': {
+                '0001': 'TS_VOLT1_(RS)',
+                '0002': 'TS_VOLT1_(ST)',
+                '0003': 'TS_VOLT1_(RT)',
+                '0004': 'TS_AMP1_(R)',
+                '0005': 'TS_AMP1_(S)',
+                '0006': 'TS_AMP1_(T)',
+                '0007': 'INNER_PRESS',
+                '0008': 'PUMP_PRESS',
+                '0009': 'TEMPERATURE1(PV)',
+                '0010': 'TEMPERATURE1(SV)',
+                '0011': 'OVER_TEMP'
+            },
+            'TS0003': {
+                '0001': 'TS_VOLT1_(RS)',
+                '0002': 'TS_VOLT1_(ST)',
+                '0003': 'TS_VOLT1_(RT)',
+                '0004': 'TS_AMP1_(R)',
+                '0005': 'TS_AMP1_(S)',
+                '0006': 'TS_AMP1_(T)',
+                '0007': 'INNER_PRESS',
+                '0008': 'PUMP_PRESS',
+                '0009': 'TEMPERATURE1(PV)',
+                '0010': 'TEMPERATURE1(SV)',
+                '0011': 'OVER_TEMP'
+            },
+            'TS0008': {
+                '0001': 'TS_VOLT1_(RS)',
+                '0002': 'TS_VOLT1_(ST)',
+                '0003': 'TS_VOLT1_(RT)',
+                '0004': 'TS_AMP1_(R)',
+                '0005': 'TS_AMP1_(S)',
+                '0006': 'TS_AMP1_(T)',
+                '0007': 'INNER_PRESS',
+                '0008': 'PUMP_PRESS',
+                '0009': 'TEMPERATURE1(PV)',
+                '0010': 'TEMPERATURE1(SV)',
+                '0011': 'OVER_TEMP'
+            }
+        }
+    redis_con.set('facilities_info', json.dumps(facilities_dict))
+
+
+def get_fac_inf(redis_con):
+    fac_daq = {}
+    facilities_binary = redis_con.get('facilities_info')
+    if facilities_binary is None:
+        init_facilities_info(redis_con)
+    
+    facilities_decoded = facilities_binary.decode()
+    facilities_info = json.loads(facilities_decoded)
+    equipment_keys = facilities_info.keys()
+    for equipment_key in equipment_keys:
+        fac_daq[equipment_key] = {}
+        for sensor_id in facilities_info[equipment_key].keys():
+            sensor_desc = facilities_info[equipment_key][sensor_id]
+            if sensor_desc not in fac_daq[equipment_key].keys():
+                fac_daq[equipment_key][sensor_desc] = 0.0
+    return fac_daq
+
+
+def config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info):
+    
+    sensor_code = modbus_udp['meta']['sensor_cd']
+    sensor_desc = redis_fac_info[equipment_id][sensor_code]
+    sensor_value = modbus_udp['meta']['sensor_value']
+    decimal_point = modbus_udp['meta']['decimal_point']
+    pv = float(sensor_value)  # * math.pow(10, float(decimal_point))
+    decimal_point = math.pow(10, float(decimal_point))
+    fac_daq[equipment_id]['pub_time'] = modbus_udp['meta']['pub_time']
+    fac_daq[equipment_id]['ms_time'] = modbus_udp['meta']['ms_time']
+    fac_daq[equipment_id][sensor_desc] = pv / decimal_point
+    fac_msg = json.dumps({equipment_id: fac_daq[equipment_id]})
+    return fac_msg
+
 
 class AsyncServer:
-
+    
+    def __init__(self):
+        self.mongo_mgr = mongo_manager.MongoMgr()
+        
     def convert(self, list):
         return tuple(i for i in list)
-
-
-    def convert_hex2decimal(self, packet_bytes, host,port):
+    
+    def publish_facility_msg(self, mqtt_con, exchange_name, routing_key, json_body):
+        try:
+            logging.debug('exchange name:' + exchange_name + ' routing key:' + routing_key)
+            logging.debug('channel is open:' + str(mqtt_con.is_open))
+            if mqtt_con.is_open is False:
+                credentials = pika.PlainCredentials('whaleshark', 'whaleshark')
+                param = pika.ConnectionParameters('localhost', 5672, '/', credentials)
+                connection = pika.BlockingConnection(param)
+                mqtt_con = connection.channel()
+                mqtt_con.queue_declare(queue='facility')
+                mqtt_con.exchange_declare(exchange=exchange_name, exchange_type='fanout')
+            
+            mqtt_con.basic_publish(exchange=exchange_name, routing_key=routing_key, body=json_body)
+            return mqtt_con, json.loads(json_body)
+        
+        except Exception as e:
+            logging.exception(str(e))
+            return {'Status': str(e)}
+    
+          
+    def convert_hex2decimal(self, packet_bytes, host, port):
         """
         In the packet, the hexadecimal value is converted to a decimal value, structured in json format, and returned.
 
@@ -38,42 +148,48 @@ class AsyncServer:
         """
         status = 'ER'
         modbus_dict = {'equipment_id': '', 'meta': {'ip': '',
-                                                             'port': '',
-                                                             'time':'' ,
-                                                             'sensor_cd':'' ,
-                                                             'fun_cd':'' ,
-                                                             'sensor_value': '',
-                                                             'decimal_point':''
-                                                             }}
+                                                    'port': '',
+                                                    'time': '',
+                                                    'sensor_cd': '',
+                                                    'fun_cd': '',
+                                                    'sensor_value': '',
+                                                    'decimal_point': ''
+                                                    }}
         try:
             byte_tuple = self.convert(list(packet_bytes))
-            logging.debug('byte message'+str(byte_tuple))
+            logging.debug('byte message\r\n' + str(byte_tuple))
             if byte_tuple[0] == 2 and (byte_tuple[16] == 3 or byte_tuple[18] == 3):
                 group = chr(byte_tuple[5]) + chr(byte_tuple[6])
                 group_code = int('0x{:02x}'.format(byte_tuple[7]) + '{:02x}'.format(byte_tuple[8]), 16)
                 group_code = '{0:04d}'.format(group_code)
                 sensor_code = int('0x{:02x}'.format(byte_tuple[9]) + '{:02x}'.format(byte_tuple[10]), 16)
                 sensor_code = '{0:04d}'.format(sensor_code)
-                fn=chr(byte_tuple[11]) +chr(byte_tuple[12])
-                logging.debug('function name:'+ fn)
-
-                logging.debug('**8Byte pressure:'+str(sensor_code))
-                fv='0x{:02x}'.format(byte_tuple[13])+'{:02x}'.format(byte_tuple[14])+'{:02x}'.format(
-	                byte_tuple[15])+'{:02x}'.format(byte_tuple[16])
-                decimal_point=int('0x{:02x}'.format(byte_tuple[17]),16)
-
+                fn = chr(byte_tuple[11]) + chr(byte_tuple[12])
+                logging.debug('function name:' + fn)
+                
+                fv = '0x{:02x}'.format(byte_tuple[13]) + '{:02x}'.format(byte_tuple[14]) + '{:02x}'.format(
+                    byte_tuple[15]) + '{:02x}'.format(byte_tuple[16])
+                decimal_point = int('0x{:02x}'.format(byte_tuple[17]), 16)
+                logging.debug('**8Byte pressure:' + str(sensor_code) + ':' + fv)
                 fv = int(fv, 16)
-                timestamp = datetime.datetime.utcnow()+ timedelta(hours=9)
-                str_hex_utc_time = str(timestamp)[0:len('2020-08-15 21:04:58')]
-                modbus_dict = {'equipment_id': group+group_code, 'meta': {'ip': host,
-                                                                    'port': port,
-                                                                    'time': str_hex_utc_time,
-                                                                    'sensor_cd': sensor_code,
-                                                                    'fun_cd': 'PV',
-                                                                    'sensor_value': fv,
-                                                                    'decimal_point': decimal_point
-                                                                    }}
-
+                # str_hex_utc_time = ((datetime.datetime.utcnow()+ timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S.%f')[:-1])
+                ms_time = time.time()
+                pub_time = datetime.datetime.fromtimestamp(time.time())
+                mongo_db_name = 'facility'
+                collection = group + group_code
+                doc_key = '%s-%s-%s'%(pub_time.year, pub_time.month, pub_time.day)
+                pub_time = str(pub_time).replace('.', 'ms')
+                self.mongo_mgr.document_upsert(mongo_db_name, collection, doc_key, pub_time)
+                modbus_dict = {'equipment_id': group + group_code, 'meta': {'ip': host,
+                                                                            'port': port,
+                                                                            'ms_time': ms_time,
+                                                                            'sensor_cd': sensor_code,
+                                                                            'fun_cd': fn,
+                                                                            'sensor_value': fv,
+                                                                            'decimal_point': decimal_point,
+                                                                            'pub_time':str(pub_time)
+                                                                            }}
+                
                 status = 'OK'
             else:
                 status = 'ER'
@@ -81,9 +197,8 @@ class AsyncServer:
             logging.exception(str(e))
         logging.debug(status + str(packet_bytes) + str(modbus_dict))
         return status, str(packet_bytes), modbus_dict
-
-
-    async def get_client(self, event_manger, server_sock, msg_size,redis_con, mq_channel):
+    
+    async def get_client(self, event_manger, server_sock, msg_size, redis_con, rabbit_channel):
         """
         It create client socket with server sockt
         event_manger        It has asyncio event loop
@@ -97,14 +212,13 @@ class AsyncServer:
             while True:
                 if not h.interrupted:
                     client, _ = await event_manger.sock_accept(server_sock)
-                    event_manger.create_task(self.manage_client(event_manger,client,msg_size,mq_channel))
+                    event_manger.create_task(self.manage_client(event_manger, client, msg_size, rabbit_channel))
                 else:
                     client.close()
                     server_sock.close()
                     sys.exit(0)
-
-
-    async def manage_client(self, event_manger, client, msg_size, mq_channel):
+    
+    async def manage_client(self, event_manger, client, msg_size, rabbit_channel):
         """
             It receives modbus data from iiot gateway using client socket.
             event_manger        It has asyncio event loop
@@ -112,72 +226,49 @@ class AsyncServer:
             msg_size            It means the packet size to be acquired at a time from the client socket.
             msg_queue           It means the queue containing the message transmitted from the gateway.
         """
-        facilities_dict = {}
-        facilities_info = json.loads(self.redis_con.get('facilities_info').decode())
-        equipment_keys = facilities_info.keys()
-        for equipment_key in equipment_keys:
-            facilities_dict[equipment_key]={}
-            for sensor_id in  facilities_info[equipment_key].keys():
-                sensor_desc = facilities_info[equipment_key][sensor_id]
-                if sensor_desc not in facilities_dict[equipment_key].keys():
-                    facilities_dict[equipment_key][sensor_desc]=0.0
 
+        fac_daq = get_fac_inf(self.redis_con)
         with GracefulInterruptHandler() as h:
             while True:
                 if not h.interrupted:
                     try:
                         packet = (await event_manger.sock_recv(client, msg_size))
                     except Exception as e:
-                        logging.exception('manage client exception:'+str(e))
                         client.close()
+                        logging.debug('Client socket close by exception:' + str(e.args))
+                        h.release()
                         break
-
                     if packet:
                         try:
                             logging.debug('try convert')
-                            host,port=client.getpeername()
-                            status, packet, modbus_udp = self.convert_hex2decimal(packet, host,port)
+                            host, port = client.getpeername()
+                            status, packet, modbus_udp = self.convert_hex2decimal(packet, host, port)
                             if status == 'OK':
-                                str_modbus_udp = str(modbus_udp)
-                                logging.debug('Queue put:' + str_modbus_udp)
                                 equipment_id = modbus_udp['equipment_id']
-                                sensor_code = modbus_udp['meta']['sensor_cd']
-                                redis_sensor_info = json.loads(self.redis_con.get('facilities_info'))
-                                if equipment_id in redis_sensor_info.keys():
-                                    sensor_desc = redis_sensor_info[equipment_id][sensor_code]
-                                    routing_key = modbus_udp['equipment_id']
-                                    facilities_dict[equipment_key]['time']=modbus_udp['meta']['time']
-                                    pv = modbus_udp['meta']['sensor_value']
-                                    decimal_point=modbus_udp['meta']['decimal_point']
-                                    pv = float(pv) * math.pow(10, float(decimal_point))
-                                    decimal_point=math.pow(10, float(decimal_point))
-                                    modbus_udp['meta']['sensor_value'] = pv / decimal_point
-                                    logging.debug('redis:'+'gateway_cvt set')
-                                    self.redis_con.set('remote_log:modbus_udp', json.dumps(modbus_udp))
-
-                                    facilities_dict[equipment_key][sensor_desc] = modbus_udp['meta']['sensor_value']
-                                    logging.debug('mq exchange:facility')
-                                    logging.debug('mq routing_key:'+routing_key)
-                                    logging.debug('mq body:'+str(json.dumps(facilities_dict)))
-
-                                    if mq_channel.is_open == True:
-                                        logging.debug('mqtt open')
-                                        mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
-                                                                 body=json.dumps(facilities_dict))
-
-                                        self.redis_con.set('remote_log:mqttpubish',json.dumps(facilities_dict))
+                                logging.debug('equipment_id:'+ equipment_id)
+                                redis_fac_info = json.loads(self.redis_con.get('facilities_info'))
+                                if equipment_id in redis_fac_info.keys():
+                                    logging.debug('config factory message')
+                                    fac_msg = config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info)
+                                    
+                                    rabbit_channel, rtn_json = self.publish_facility_msg(mqtt_con=rabbit_channel,
+                                                                                         exchange_name='facility',
+                                                                                         routing_key=equipment_id,
+                                                                                         json_body=fac_msg)
+                                    if rtn_json == json.loads(fac_msg):
+                                        logging.debug(
+                                            'mq body:' + str(json.dumps({equipment_id: fac_daq[equipment_id]})))
                                     else:
-                                        logging.debug('mqtt closed')
-                                        logging.debug('reconnecting to queue')
-                                        mq_channel.connect()
-                                        mq_channel.basic_publish(exchange='facility',routing_key=routing_key,
-                                                                 body=json.dumps(facilities_dict))
+                                        logging.exception("MQTT Publish Excetion:" + str(rtn_json))
+                                        raise NameError('MQTT Publish exception')
+                                
                                 else:
-                                    acq_message = status + packet + 'no exist key\r\n'
+                                    acq_message = status + packet + 'is not exist equipment_id key\r\n'
+                                    logging.debug(acq_message)
                                     client.sendall(acq_message.encode())
                                     continue
                             acq_message = status + packet + '\r\n'
-                            logging.debug('rtn:'+ acq_message)
+                            logging.debug('rtn:' + acq_message)
                             client.sendall(acq_message.encode())
                         except Exception as e:
                             client.sendall(packet.encode())

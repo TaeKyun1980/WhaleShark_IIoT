@@ -10,6 +10,17 @@ iiot_server:
   rabbit_mq:
     ip_address: 'localhost'
     port: 5672
+    id: 'whaleshark'
+    pwd: 'whaleshark'
+    exchange: 'facility'
+    exchange_type: 'fanout'
+
+  mongodb:
+    ip_address: 'localhost'
+    port: 27017
+    id: 'whaleshark'
+    pwd: 'whaleshark'
+    db: 'facility'
 
   influxdb:
     ip_address: 'localhost'

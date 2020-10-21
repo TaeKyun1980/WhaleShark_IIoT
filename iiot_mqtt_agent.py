@@ -4,9 +4,20 @@ import json
 import pika
 import sys
 import redis
+<<<<<<< HEAD
+=======
+from datetime import timedelta
+import datetime
+>>>>>>> upstream/master
 from influxdb import InfluxDBClient
+import time
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+import mongo_manager
+
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
+logging.getLogger("pika").propagate = False
+
+mongo_mgr = mongo_manager.MongoMgr()
 
 
 def connect_redis(host, port):
@@ -31,10 +42,8 @@ def connect_redis(host, port):
             "port": port,
         }
         redis_obj = redis.StrictRedis(**conn_params)
-    
     except Exception as e:
         logging.error(str(e))
-    
     return redis_obj
 
 
@@ -49,14 +58,15 @@ def connect_influxdb(host, port, id, pwd, db):
         client = InfluxDBClient(host=host, port=port, username=id, password=pwd, database=db)
     except Exception as e:
         logging.error(str(e))
-    
     return client
 
 
 def get_messagequeue(address, port):
     '''
     If you don't have rabbitmq, you can use docker.
-    docker run -d --hostname whaleshark --name whaleshark-rabbit -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark -e RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
+    docker run -d --hostname whaleshark --name whaleshark-rabbit \
+    -p 5672:5672 -p 8080:15672 -e RABBITMQ_DEFAULT_USER=whaleshark \
+    -e RABBITMQ_DEFAULT_PASS=whaleshark rabbitmq:3-management
 
     get message queue connector (rabbit mq) with address, port
     :param address: rabbit mq server ip
@@ -66,7 +76,7 @@ def get_messagequeue(address, port):
     channel = None
     try:
         credentials = pika.PlainCredentials('whaleshark', 'whaleshark')
-        param = pika.ConnectionParameters(address,port, '/',credentials )
+        param = pika.ConnectionParameters(address, port, '/', credentials)
         connection = pika.BlockingConnection(param)
         channel = connection.channel()
 
@@ -80,38 +90,43 @@ influxdb_client = None
 def callback_mqreceive(ch, method, properties, body):
     body = body.decode('utf-8')
     facility_msg_json = json.loads(body)
-    print(facility_msg_json)
     table_name = list(facility_msg_json.keys())[0]
-    fields={}
+    fields = {}
     tags = {}
-    print(facility_msg_json[table_name])
+    logging.debug('mqtt body:'+ str(facility_msg_json))
+    me_timestamp = time.time()
     for key in facility_msg_json[table_name].keys():
-        if 'time' not in key:
-            tags[key]=float(facility_msg_json[table_name][key])
-            fields[key]=float(facility_msg_json[table_name][key])
-        else:
-            fields[key] = facility_msg_json[table_name][key]
-        
-    influx_json=[{
-        'measurement':table_name,
-        'fields':tags,
-        'tags': tags
+        #tags[key] = float(facility_msg_json[table_name][key])
+        if key != 'pub_time':
+            logging.debug('config key:'+key + 'value:'+str(facility_msg_json[table_name][key]))
+            fields[key] = float(facility_msg_json[table_name][key])
+       
+    pub_time = facility_msg_json[table_name]['pub_time']
+    day = pub_time.split(' ')[0]#.replace('T','')
+    pub_doc = mongo_mgr.document_bykey('facility', table_name, {'DAY':day})
+    if pub_doc is not None:
+        mongo_mgr.document_upsert('facility', table_name, day, pub_time, status='CHECK')
+    
+    fields['me_time'] = me_timestamp
+    influx_json = [{
+        'measurement': table_name,
+        # 'tags':tags,
+        'fields': fields
     }]
     try:
-        if influxdb_client.write_points(influx_json) == True:
-            logging.debug('influx write success' + str(influx_json))
+        if influxdb_client.write_points(influx_json) is True:
+            logging.debug('influx write success:' + str(influx_json))
         else:
-            logging.debug('influx write faile')
-            
+            logging.debug('influx write faile:' + str(influx_json))
     except Exception as e:
         print(str(e))
 
 
 def config_facility_desc(redis_con):
-    facilities_dict=redis_con.get('facilities_info')
+    facilities_dict = redis_con.get('facilities_info')
 
-    if facilities_dict==None:
-        facilities_dict={'TS0001':{
+    if facilities_dict is None:
+        facilities_dict = {'TS0001': {
             '0001':'TS_VOLT1_(RS)',
             '0002':'TS_VOLT1_(ST)',
             '0003':'TS_VOLT1_(RT)',
@@ -120,9 +135,9 @@ def config_facility_desc(redis_con):
             '0006':'TS_AMP1_(T)',
             '0007':'INNER_PRESS',
             '0008':'PUMP_PRESS',
-            '0009':'TEMPERATURE1',
-            '0010':'OVER_TEMP'
-        }
+            '0009':'TEMPERATURE1(PV)',
+            '0010':'TEMPERATURE1(SV)',
+            '0011':'OVER_TEMP'}
         }
         redis_con.set('facilities_info',json.dumps(facilities_dict))
 

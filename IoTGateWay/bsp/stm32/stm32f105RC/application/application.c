@@ -9,11 +9,13 @@
 #include <config/appconfig.h>
 #include <device/uart/plccomm.h>
 #include <network/networkmanager.h>
+#include <device/led/led.h>
 
 typedef struct _APPINFO
 {
 	rt_mq_t appMq;
-	MqData_t mqData;
+
+	NetworkInfoData networkInfoData;
 }AppInfo;
 
 static AppInfo appInfo;
@@ -28,8 +30,8 @@ void ApplicationSendMessage(MqData_t *pMqData)
 
 void DeviceReboot(void)
 {
-	rt_kprintf("Device Reboot After 2 seconds\r\n");
-	rt_thread_delay(2000);
+	rt_kprintf("Restart IoT Gateway and Wi-Fi Module After 1 second\r\n");
+	rt_thread_delay(1000);
 	NVIC_SystemReset();
 }
 
@@ -42,6 +44,9 @@ static void app_main_thread(void *params)
 {
 	AppInfo *p_handle = (AppInfo *)params;
 	MqData_t *pMqData = RT_NULL;
+	uint8_t channel2Led = DISABLE;
+
+	LedBlinkTurnOn(WIFI_LED);
 
 	while(1)
 	{
@@ -50,9 +55,44 @@ static void app_main_thread(void *params)
 			MqData_t mqData;
 
 			rt_memcpy(&mqData, pMqData, sizeof(mqData));
+			rt_memcpy(&p_handle->networkInfoData, mqData.data, sizeof(p_handle->networkInfoData));
+
 			switch(mqData.messge)
 			{
-			case SMSG_INC_DATA:
+			case SMSG_WIFI_OK:
+				switch(p_handle->networkInfoData.networkStatus)
+				{
+				case STATUS_CONNECT_WIFI:
+					LedTurnOn(WIFI_LED);
+					LedBlinkTurnOn(CHANNEL1_LED);//TCP
+					break;
+				case STATUS_TCP_CONNECT:
+					LedTurnOn(CHANNEL1_LED);
+					LedBlinkTurnOn(CHANNEL2_LED);//Sending Data
+					channel2Led = ENABLE;
+					break;
+				case STATUS_SEND_DATA:
+					if(DISABLE == channel2Led)
+					{
+						LedBlinkTurnOn(CHANNEL2_LED);//Sending Data
+						channel2Led = ENABLE;
+					}
+					break;
+				default:
+					break;
+				}
+				break;
+			case SMSG_WIFI_FAIL:
+			case SMSG_WIFI_ERROR:
+				switch(p_handle->networkInfoData.networkStatus)
+				{
+				case STATUS_SEND_DATA:
+					channel2Led = DISABLE;
+					LedTurnOff(CHANNEL2_LED);
+					break;
+				default:
+					break;
+				}
 				break;
 			}
 		}
@@ -71,6 +111,7 @@ rt_bool_t InitApplication(void)
 	rt_thread_t tid;
 
 	InitApplicationInfo();
+	InitLed();
 
 	h_data->appMq = rt_mq_create("app_mq", sizeof(MqData_t), APPLICATION_MQ_SIZE, RT_IPC_FLAG_FIFO);
 	RT_ASSERT(RT_NULL != h_data->appMq);

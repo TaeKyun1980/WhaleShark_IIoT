@@ -23,7 +23,6 @@
 #include <drivers/usb_device.h>
 
 extern int stm_usbd_register(void);
-extern int rt_wdt_init(void);
 
 #ifdef RT_USING_USER_MAIN
 #ifndef RT_MAIN_THREAD_STACK_SIZE
@@ -97,7 +96,7 @@ void rt_components_board_init(void)
         rt_kprintf(":%d done\n", result);
     }
 #else
-    const init_fn_t *fn_ptr;
+    volatile const init_fn_t *fn_ptr;
 
     for (fn_ptr = &__rt_init_rti_board_start; fn_ptr < &__rt_init_rti_board_end; fn_ptr++)
     {
@@ -123,7 +122,7 @@ void rt_components_init(void)
         rt_kprintf(":%d done\n", result);
     }
 #else
-    const init_fn_t *fn_ptr;
+    volatile const init_fn_t *fn_ptr;
 
     for (fn_ptr = &__rt_init_rti_board_end; fn_ptr < &__rt_init_rti_end; fn_ptr ++)
     {
@@ -225,42 +224,16 @@ int rtthread_startup(void)
      */
     rt_hw_board_init();
 
-    /* init kernel object */
-    rt_system_object_init();
-
-    /* show RT-Thread version */
-    rt_show_version();
-
     /* timer system initialization */
     rt_system_timer_init();
 
     /* scheduler system initialization */
     rt_system_scheduler_init();
 
-/* Kyle 20200121 */
     rt_usbd_class_list_init();
     rt_usbd_vcom_class_register();
     stm_usbd_register();
-#ifndef RT_USING_COMPONENTS_INIT
-#ifdef RT_USING_CONSOLE
     rt_console_set_device(RT_CONSOLE_DEVICE_NAME);
-#endif
-
-#ifdef RT_USING_FINSH
-    /* init finsh */
-    finsh_system_init();
-    finsh_set_device(RT_CONSOLE_DEVICE_NAME);
-#endif
-#else
-    rt_components_init();
-#endif
-
-#ifdef RT_USING_SIGNALS
-    /* signal system initialization */
-    rt_system_signal_init();
-#endif
-    /* watchdog init */
-    rt_wdt_init();
 
     /* create init_thread */
     rt_application_init();
@@ -270,10 +243,6 @@ int rtthread_startup(void)
 
     /* idle thread initialization */
     rt_thread_idle_init();
-
-#ifdef RT_USING_SMP
-    rt_hw_spin_lock(&_cpus_lock);
-#endif /*RT_USING_SMP*/
 
     /* start scheduler */
     rt_system_scheduler_start();

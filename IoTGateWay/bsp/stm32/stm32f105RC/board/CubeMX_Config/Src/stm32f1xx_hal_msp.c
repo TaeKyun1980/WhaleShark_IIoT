@@ -306,49 +306,6 @@ void HAL_PCD_MspInit(PCD_HandleTypeDef* pcdHandle)
   }
 }
 
-#if 0
-void HAL_RTC_MspInit(RTC_HandleTypeDef* hrtc)
-{
-  RCC_OscInitTypeDef        RCC_OscInitStruct;
-  RCC_PeriphCLKInitTypeDef  PeriphClkInitStruct;
-
-  if (hrtc->Instance==RTC)
-  {
-    /* USER CODE BEGIN RTC_MspInit 0 */
-
-    /* USER CODE END RTC_MspInit 0 */
-    /* Peripheral clock enable */
-    __HAL_RCC_PWR_CLK_ENABLE();
-    HAL_PWR_EnableBkUpAccess();
-
-    /* USER CODE BEGIN RTC_MspInit 1 */
-    RCC_OscInitStruct.OscillatorType =  RCC_OSCILLATORTYPE_LSE;
-    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
-    RCC_OscInitStruct.LSEState = RCC_LSE_ON;
-    RCC_OscInitStruct.LSIState = RCC_LSI_OFF;
-    if(HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-    { 
-        while(1);
-    }
-    
-    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
-    PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
-    if(HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
-    { 
-        while(1);
-    }
-
-    /* USER CODE END RTC_MspInit 1 */
-    __HAL_RCC_RTC_ENABLE();
-#if 0
-    /*##-4- Configure the NVIC for RTC Alarm ###################################*/
-    HAL_NVIC_SetPriority(RTC_Alarm_IRQn, 0x0F, 0);
-    HAL_NVIC_EnableIRQ(RTC_Alarm_IRQn);
-#endif    
-  }
-}
-#endif
-
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */

@@ -209,7 +209,7 @@ static rt_err_t _init(rt_device_t device)
     pcd->Init.Sof_enable = DISABLE;
     pcd->Init.low_power_enable = DISABLE;
     pcd->Init.vbus_sensing_enable = DISABLE;
-    pcd->Init.ep0_mps = DEP0CTL_MPS_64;
+    pcd->Init.ep0_mps = EP_MPS_64;
 #if !defined(SOC_SERIES_STM32F1)
     pcd->Init.phy_itface = USBD_PCD_PHY_MODULE;
 #endif

@@ -6,7 +6,7 @@
 #ifndef DEVICE_FLASH_FLASH_H_
 #define DEVICE_FLASH_FLASH_H_
 
-#define FLASH_PAGESIZE						1024
+#define FLASH_PAGESIZE						2048
 
 #define WATERMARK_VALUE						0xAF
 

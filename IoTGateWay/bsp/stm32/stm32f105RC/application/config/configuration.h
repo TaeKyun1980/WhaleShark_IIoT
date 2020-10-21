@@ -8,14 +8,16 @@
 #ifndef __CONFIGURATION_H__
 #define __CONFIGURATION_H__
 
-#define AP_MAX_LENGTH	32
+#define AP_MAX_SSID_LENGTH	32
+#define AP_MAX_PASSWORD_LENGTH	64
 #define IP_MAX_LENGTH	16
 #define MAC_LENGTH		18
+#define MAX_DOMAIN_LENGTH	64
 
 #pragma pack(push, 1)
 typedef struct _NetworkdCofig{
-	rt_uint8_t apSSID[AP_MAX_LENGTH];
-	rt_uint8_t apPassword[AP_MAX_LENGTH];
+	rt_uint8_t apSSID[AP_MAX_SSID_LENGTH];
+	rt_uint8_t apPassword[AP_MAX_PASSWORD_LENGTH];
 
 	rt_uint8_t destIp[IP_MAX_LENGTH];
 	rt_uint16_t destPort;
@@ -25,6 +27,8 @@ typedef struct _NetworkdCofig{
 	rt_uint8_t subnetMask[IP_MAX_LENGTH];
 	rt_uint8_t macAddress[MAC_LENGTH];
 	rt_uint8_t dhcpMode;
+	rt_uint8_t domainOn;
+	rt_uint8_t domainInfo[MAX_DOMAIN_LENGTH];
 }NetworkdCofig;
 typedef struct _config_tag {
 	rt_uint8_t waterMark;
@@ -60,6 +64,10 @@ rt_uint8_t GetManufactureMode(void);
 rt_bool_t SetManufacture(rt_uint8_t on);
 rt_uint8_t *GetDeviceInfo(void);
 void SetDeviceInfo(rt_uint8_t *pData, rt_size_t dataSize);
+rt_uint8_t GetDomainConfig(void);
+void SetDomainConfig(rt_uint8_t domainOn);
+rt_uint8_t *GetDomainInfo(void);
+void SetDomainInfo(rt_uint8_t *pData, rt_size_t dataSize);
 void ShowConfig(void);
 rt_bool_t InitConfiguration(void);
 

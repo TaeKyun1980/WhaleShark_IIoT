@@ -13,9 +13,6 @@
 #include <rtdevice.h>
 #include <drivers/usb_device.h>
 #include "winusb.h"
-
-#define RT_WINUSB_GUID  "{6860DC3C-C05F-4807-8807-1CA861CC1D66}"
-
 struct winusb_device
 {
     struct rt_device parent;
@@ -124,7 +121,7 @@ const static char* _ustring[] =
 ALIGN(4)
 struct usb_os_proerty winusb_proerty[] = 
 {
-    USB_OS_PROERTY_DESC(USB_OS_PROERTY_TYPE_REG_SZ,"DeviceInterfaceGUID",RT_WINUSB_GUID),
+    USB_OS_PROPERTY_DESC(USB_OS_PROPERTY_TYPE_REG_SZ,"DeviceInterfaceGUID",RT_WINUSB_GUID),
 };
 
 ALIGN(4)

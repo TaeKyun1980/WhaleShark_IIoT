@@ -32,6 +32,10 @@
 
 #include <rtconfig.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* the debug log will force enable when RT_DEBUG macro is defined */
 #if defined(RT_DEBUG) && !defined(DBG_ENABLE)
 #define DBG_ENABLE
@@ -175,5 +179,9 @@
 #define LOG_RAW(...)         dbg_raw(__VA_ARGS__)
 
 #endif /* defined(RT_USING_ULOG) && define(DBG_ENABLE) */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RT_DBG_H__ */

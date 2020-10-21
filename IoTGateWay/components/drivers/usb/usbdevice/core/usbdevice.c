@@ -101,7 +101,7 @@ rt_err_t rt_usb_device_init(void)
     rt_device_t udc;
     udevice_t udevice;
     uconfig_t cfg;
-    ufunction_t func = NULL;
+    ufunction_t func = RT_NULL;
     rt_list_t *i;
     udclass_t udclass;
 
