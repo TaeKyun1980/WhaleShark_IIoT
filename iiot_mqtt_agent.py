@@ -11,7 +11,6 @@ import mongo_manager
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
 logging.getLogger("pika").propagate = False
-
 mongo_mgr = mongo_manager.MongoMgr()
 
 
@@ -42,7 +41,7 @@ def connect_redis(host, port):
     return redis_obj
 
 
-def con_influxdb(host, port, name, pwd, db):
+def get_influxdb(host, port, name, pwd, db):
     """
     :param host: InfluxDB access host ip
     :param port: InfluxDB access port
@@ -83,8 +82,7 @@ def get_messagequeue(address, port):
 
     return channel
 
-
-influxdb_client = None
+influxdb_mgr = None
 
 
 def callback_mqreceive(ch, method, properties, body):
@@ -112,7 +110,7 @@ def callback_mqreceive(ch, method, properties, body):
         'fields': fields
     }]
     try:
-        if influxdb_client.write_points(influx_json) is True:
+        if influxdb_mgr.write_points(influx_json) is True:
             logging.debug('influx write success:' + str(influx_json))
         else:
             logging.debug('influx write faile:' + str(influx_json))
@@ -122,7 +120,6 @@ def callback_mqreceive(ch, method, properties, body):
 
 def config_facility_desc(redis_con):
     facilities_dict = redis_con.get('facilities_info')
-
     if facilities_dict is None:
         facilities_dict = {'TS0001': {
             '0001': 'TS_VOLT1_(RS)',
@@ -141,6 +138,7 @@ def config_facility_desc(redis_con):
 
 
 if __name__ == '__main__':
+    
     with open('config/config_server_develop.yaml', 'r') as file:
         config_obj = yaml.load(file, Loader=yaml.FullLoader)
         rabbitmq_host = config_obj['iiot_server']['rabbit_mq']['ip_address']
@@ -156,25 +154,24 @@ if __name__ == '__main__':
         influx_pwd = config_obj['iiot_server']['influxdb']['pwd']
         influx_db = config_obj['iiot_server']['influxdb']['db']
     
-    influxdb_client = con_influxdb(host=influx_host, port=influx_port, name=influx_id, pwd=influx_pwd, db=influx_db)
-    if influxdb_client is None:
+    influxdb_mgr = get_influxdb(host=influx_host, port=influx_port, name=influx_id, pwd=influx_pwd, db=influx_db)
+    if influxdb_mgr is None:
         logging.error('influxdb configuration fail')
         
     mq_channel = get_messagequeue(address=rabbitmq_host, port=rabbitmq_port)
     if mq_channel is None:
         logging.error('rabbitmq configuration fail')
     
-    redis_con = connect_redis(redis_host, redis_port)
-    config_facility_desc(redis_con)
-    facilities_dict = json.loads(redis_con.get('facilities_info'))
+    redis_mgr = connect_redis(redis_host, redis_port)
+    config_facility_desc(redis_mgr)
+    facilities_dict = json.loads(redis_mgr.get('facilities_info'))
     for facility_id in facilities_dict.keys():
         result = mq_channel.queue_declare(queue=facility_id, exclusive=True)
-        queue_name = result.method.queue
-        mq_channel.queue_bind(exchange='facility', queue=queue_name)
-        
-        call_back_arg = {'measurement': queue_name}
+        tx_queue = result.method.queue
+        mq_channel.queue_bind(exchange='facility', queue=tx_queue)
+        call_back_arg = {'measurement': tx_queue}
         try:
-            mq_channel.basic_consume(queue_name, on_message_callback=callback_mqreceive)
+            mq_channel.basic_consume(tx_queue, on_message_callback=callback_mqreceive)
         except Exception as e:
             logging.error(str(e))
     
