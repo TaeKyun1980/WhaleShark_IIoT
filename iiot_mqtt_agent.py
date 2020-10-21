@@ -167,8 +167,8 @@ if __name__ == '__main__':
     redis_con = connect_redis(redis_host, redis_port)
     config_facility_desc(redis_con)
     facilities_dict = json.loads(redis_con.get('facilities_info'))
-    for facility in facilities_dict.keys():
-        result = mq_channel.queue_declare(queue=facility, exclusive=True)
+    for facility_id in facilities_dict.keys():
+        result = mq_channel.queue_declare(queue=facility_id, exclusive=True)
         queue_name = result.method.queue
         mq_channel.queue_bind(exchange='facility', queue=queue_name)
         call_back_arg = {'measurement': queue_name}
