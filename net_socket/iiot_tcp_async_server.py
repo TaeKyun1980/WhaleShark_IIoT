@@ -90,7 +90,6 @@ def get_fac_inf(redis_con):
 
 
 def config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info):
-    
     sensor_code = modbus_udp['meta']['sensor_cd']
     sensor_desc = redis_fac_info[equipment_id][sensor_code]
     sensor_value = modbus_udp['meta']['sensor_value']
@@ -106,11 +105,12 @@ def config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info):
 
 class AsyncServer:
     
-    def __init__(self):
+    def __init__(self, redis_manager):
         self.mongo_mgr = mongo_manager.MongoMgr()
+        self.redis_mgr = redis_manager
         
-    def convert(self, list):
-        return tuple(i for i in list)
+    def convert(self, packet_list):
+        return tuple(i for i in packet_list)
     
     def publish_facility_msg(self, mqtt_con, exchange_name, routing_key, json_body):
         try:
@@ -198,7 +198,7 @@ class AsyncServer:
         logging.debug(status + str(packet_bytes) + str(modbus_dict))
         return status, str(packet_bytes), modbus_dict
     
-    async def get_client(self, event_manger, server_sock, msg_size, redis_con, rabbit_channel):
+    async def get_client(self, event_manger, server_sock, msg_size, rabbit_channel):
         """
         It create client socket with server sockt
         event_manger        It has asyncio event loop
@@ -206,7 +206,6 @@ class AsyncServer:
         msg_size            It means the packet size to be acquired at a time from the client socket.
         msg_queue           It means the queue containing the message transmitted from the gateway.
         """
-        self.redis_con = redis_con
         with GracefulInterruptHandler() as h:
             client = None
             while True:
@@ -227,7 +226,7 @@ class AsyncServer:
             msg_queue           It means the queue containing the message transmitted from the gateway.
         """
 
-        fac_daq = get_fac_inf(self.redis_con)
+        fac_daq = get_fac_inf(self.redis_mgr)
         with GracefulInterruptHandler() as h:
             while True:
                 if not h.interrupted:
@@ -246,7 +245,7 @@ class AsyncServer:
                             if status == 'OK':
                                 equipment_id = modbus_udp['equipment_id']
                                 logging.debug('equipment_id:' + equipment_id)
-                                redis_fac_info = json.loads(self.redis_con.get('facilities_info'))
+                                redis_fac_info = json.loads(self.redis_mgr.get('facilities_info'))
                                 if equipment_id in redis_fac_info.keys():
                                     logging.debug('config factory message')
                                     fac_msg = config_fac_msg(equipment_id, fac_daq, modbus_udp, redis_fac_info)
