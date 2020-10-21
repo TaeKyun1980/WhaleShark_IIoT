@@ -171,6 +171,7 @@ if __name__ == '__main__':
         result = mq_channel.queue_declare(queue=facility_id, exclusive=True)
         queue_name = result.method.queue
         mq_channel.queue_bind(exchange='facility', queue=queue_name)
+        
         call_back_arg = {'measurement': queue_name}
         try:
             mq_channel.basic_consume(queue_name, on_message_callback=callback_mqreceive)
