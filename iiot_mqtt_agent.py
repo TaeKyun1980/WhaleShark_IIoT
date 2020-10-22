@@ -6,7 +6,7 @@ import sys
 import redis
 from influxdb import InfluxDBClient
 import time
-from WhaleShark_IIoT import mongo_manager
+import mongo_manager
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     stream=sys.stdout, level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
@@ -101,7 +101,7 @@ def callback_mqreceive(ch, method, properties, body):
     day = pub_time.split(' ')[0]
     pub_doc = mongo_mgr.document_bykey('facility', table_name, {'DAY': day})
     if pub_doc is not None:
-        mongo_mgr.document_upsert('facility', table_name, day, pub_time, status='CHECK')
+        mongo_mgr.document_upsert('facility', table_name, day, pub_time, status={'RECEIVED':''})
     
     fields['me_time'] = me_timestamp
     influx_json = [{
