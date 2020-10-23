@@ -1,17 +1,11 @@
-import sys
 import time
 import unittest
 import json
-from filecmp import cmp
-
 import pika
-
 from iiot_server import TcpServer
 from net_socket.iiot_tcp_async_server import AsyncServer, get_fac_inf, config_fac_msg
 from iiot_mqtt_agent import Agent
 from influxdb import DataFrameClient
-import pandas
-
 
 class Tcp_server_test(unittest.TestCase):
     
@@ -22,8 +16,8 @@ class Tcp_server_test(unittest.TestCase):
         server.init_config()
         self.mq_channel = server.get_mq_channel()
         self.redis_con = server.get_redis_con()
-        self.async_svr = AsyncServer()
-        mqtt_agent = Agent()
+        self.async_svr = AsyncServer(self.redis_con)
+        self.mqtt_agent = Agent()
         self.mqtt_agent.resource_config()
         
     def setUp(self):
@@ -60,11 +54,10 @@ class Tcp_server_test(unittest.TestCase):
         del origian_msg['meta']['time']
         packet = self.make_packet(facility_id='TS0001', sensor_code='0001', pv=330)
         _, _, self.modbus_udp = self.async_svr.convert_hex2decimal(packet, self.server_ip, self.server_port)
+        del self.modbus_udp['meta']['pub_time']
         del self.modbus_udp['meta']['ms_time']
         
         is_equal = self.modbus_udp == origian_msg
-        print(self.modbus_udp)
-        
         self.assertEqual(True, is_equal)
     
     def test_02_mqtt_pub_scribe(self):
@@ -130,10 +123,13 @@ class Tcp_server_test(unittest.TestCase):
         fields = {}
         facility_msg_json = json.loads(fac_msg)
         me_timestamp = time.time()
+        del facility_msg_json[equipment_id]['ms_time']
+        del facility_msg_json[equipment_id]['pub_time']
         for key in facility_msg_json[equipment_id].keys():
+            print(key)
             fields[key] = float(facility_msg_json[equipment_id][key])
         
-        fields['me_time'] = me_timestamp
+        # fields['me_time'] = me_timestamp
         influx_json = [{
             'measurement': equipment_id,
             'fields': fields
