@@ -147,69 +147,36 @@ class Agent:
             }
             redis_con.set('facilities_info', json.dumps(facilities_dict))
             
-    def syncmessge(self):
+    def resource_config(self):
         self.influxdb_mgr = self.get_influxdb(host=self.influx_host, port=self.influx_port, name=self.influx_id, pwd=self.influx_pwd, db=self.influx_db)
         if self.influxdb_mgr is None:
             logging.error('influxdb configuration fail')
 
-        mq_channel = self.get_messagequeue(address=self.rabbitmq_host, port=self.rabbitmq_port)
-        if mq_channel is None:
+        self.mq_channel = self.get_messagequeue(address=self.rabbitmq_host, port=self.rabbitmq_port)
+        if self.mq_channel is None:
                 logging.error('rabbitmq configuration fail')
             
-        redis_mgr = self.connect_redis(self.redis_host, self.redis_port)
-        self.config_facility_desc(redis_mgr)
-        facilities_dict = json.loads(redis_mgr.get('facilities_info'))
+        self.redis_mgr = self.connect_redis(self.redis_host, self.redis_port)
+    
+    def get_influxdb_mgr(self):
+        return self.influxdb_mgr
+    
+    def syncmessage(self):
+        self.config_facility_desc(self.redis_mgr)
+        facilities_dict = json.loads(self.redis_mgr.get('facilities_info'))
         for facility_id in facilities_dict.keys():
-            result = mq_channel.queue_declare(queue=facility_id, exclusive=True)
+            result = self.mq_channel.queue_declare(queue=facility_id, exclusive=True)
             tx_queue = result.method.queue
-            mq_channel.queue_bind(exchange='facility', queue=tx_queue)
+            self.mq_channel.queue_bind(exchange='facility', queue=tx_queue)
             call_back_arg = {'measurement': tx_queue}
             try:
-                mq_channel.basic_consume(tx_queue, on_message_callback=self.callback_mqreceive)
+                self.mq_channel.basic_consume(tx_queue, on_message_callback=self.callback_mqreceive)
             except Exception as exp:
                 logging.error(str(exp))
 
-        mq_channel.start_consuming()
+        self.mq_channel.start_consuming()
         
 if __name__ == '__main__':
-    
-    # with open('config/config_server_develop.yaml', 'r') as file:
-    #     config_obj = yaml.load(file, Loader=yaml.FullLoader)
-    #     rabbitmq_host = config_obj['iiot_server']['rabbit_mq']['ip_address']
-    #     rabbitmq_port = config_obj['iiot_server']['rabbit_mq']['port']
-    #
-    #     redis_host = config_obj['iiot_server']['redis_server']['ip_address']
-    #     redis_port = config_obj['iiot_server']['redis_server']['port']
-    #
-    #     influx_host = config_obj['iiot_server']['influxdb']['ip_address']
-    #     influx_port = config_obj['iiot_server']['influxdb']['port']
-    #
-    #     influx_id = config_obj['iiot_server']['influxdb']['id']
-    #     influx_pwd = config_obj['iiot_server']['influxdb']['pwd']
-    #     influx_db = config_obj['iiot_server']['influxdb']['db']
-    
     mqtt_agent = Agent()
-    mqtt_agent.syncmessge()
-    
-    # influxdb_mgr = get_influxdb(host=influx_host, port=influx_port, name=influx_id, pwd=influx_pwd, db=influx_db)
-    # if influxdb_mgr is None:
-    #     logging.error('influxdb configuration fail')
-    #
-    # mq_channel = get_messagequeue(address=rabbitmq_host, port=rabbitmq_port)
-    # if mq_channel is None:
-    #     logging.error('rabbitmq configuration fail')
-    #
-    # redis_mgr = connect_redis(redis_host, redis_port)
-    # config_facility_desc(redis_mgr)
-    # facilities_dict = json.loads(redis_mgr.get('facilities_info'))
-    # for facility_id in facilities_dict.keys():
-    #     result = mq_channel.queue_declare(queue=facility_id, exclusive=True)
-    #     tx_queue = result.method.queue
-    #     mq_channel.queue_bind(exchange='facility', queue=tx_queue)
-    #     call_back_arg = {'measurement': tx_queue}
-    #     try:
-    #         mq_channel.basic_consume(tx_queue, on_message_callback=callback_mqreceive)
-    #     except Exception as e:
-    #         logging.error(str(e))
-    #
-    # mq_channel.start_consuming()
+    mqtt_agent.resource_config()
+    mqtt_agent.syncmessage()
